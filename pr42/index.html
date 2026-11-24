@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DeepEP PR 42, explained</title>
+<style>
+:root { --fw:#2b6cb0; --fwb:#ebf4ff; --px:#c05621; --pxb:#fffaf0; --qp:#2f855a; --qpb:#f0fff4; --rx:#6b46c1; --rxb:#faf5ff; --hs:#4a5568; --hsb:#f7fafc; --ink:#1a202c; --mute:#718096; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; }
+main { max-width: 1120px; margin: 0 auto; padding: 28px 20px 80px; }
+h1 { font-size: 28px; margin: 0 0 6px; }
+h2 { font-size: 21px; margin: 44px 0 8px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+h3 { font-size: 17px; margin: 22px 0 6px; }
+p, li { max-width: 860px; }
+.sub { color: var(--mute); margin: 0 0 18px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+a { color: #2b6cb0; }
+nav { background: var(--hsb); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin: 16px 0 6px; }
+nav a { margin-right: 14px; white-space: nowrap; }
+figure { margin: 14px 0 6px; }
+figcaption { color: var(--mute); font-size: 14px; margin-top: 4px; max-width: 900px; }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+svg .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+table { border-collapse: collapse; margin: 10px 0 6px; font-size: 14.5px; }
+th, td { border: 1px solid #cbd5e0; padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: #edf2f7; }
+td.own { background: var(--qpb); }
+td.shared { background: #fff5f5; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.key { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin: 0 4px 0 10px; border: 1px solid #a0aec0; }
+.note { background: var(--pxb); border-left: 4px solid var(--px); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
+.ctx { background: var(--hsb); border-left: 4px solid var(--hs); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
+.small { font-size: 14px; color: var(--mute); }
+</style>
+</head>
+<body>
+<main>
+<h1>DeepEP PR 42, explained</h1>
+<p class="sub">
+<a href="https://github.com/amazon-contributing/DeepEP/pull/42">amazon-contributing/DeepEP#42</a>,
+head <span class="mono">b9a76ff</span> on main <span class="mono">c81a983</span>.
+Every code link below points at the head commit.
+</p>
+
+<p>The PR changes how the unordered combine sends its scale-out (rail) traffic, and it adds the host settings that this needs.
+It has five commits. This page explains four of them in detail.
+The middle commit in the diagram below, <span class="mono">472847a</span> (the forward list as two FIFOs), was reviewed earlier and is not covered here. It only appears where the others depend on it.</p>
+
+<nav>
+<a href="#commits">1. Commits</a>
+<a href="#before-after">2. Who posts the puts</a>
+<a href="#round">3. One proxy round</a>
+<a href="#example">4. Worked example</a>
+<a href="#contexts">5. GIN contexts and QPs</a>
+<a href="#generations">6. Which kernels run</a>
+<a href="#fifo">7. Two FIFOs (context)</a>
+<a href="#code">8. Code map</a>
+</nav>
+
+<h2 id="commits">1. The five commits</h2>
+<figure>
+<svg viewBox="0 0 1080 190" role="img" aria-label="The five commits of PR 42 in order">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#f7fafc"/><line x1="0" y1="0" x2="0" y2="8" stroke="#e2e8f0" stroke-width="4"/></pattern>
+  </defs>
+  <g font-size="13">
+    <rect x="6" y="20" width="200" height="150" rx="8" fill="#fffaf0" stroke="#c05621" stroke-width="1.5"/>
+    <text x="16" y="42" class="m" font-size="13" fill="#c05621">810bab3</text>
+    <text x="16" y="64" font-weight="600">Proxy warp owns the</text>
+    <text x="16" y="82" font-weight="600">combine's scale-out side</text>
+    <text x="16" y="106" fill="#4a5568">Vladimir Aerov,</text>
+    <text x="16" y="123" fill="#4a5568">co-author Anshuman Goswami</text>
+    <text x="16" y="148" fill="#4a5568">combine kernel, +205 / -177</text>
+
+    <rect x="222" y="20" width="200" height="150" rx="8" fill="#fffaf0" stroke="#c05621" stroke-width="1.5"/>
+    <text x="232" y="42" class="m" fill="#c05621">5886b0d</text>
+    <text x="232" y="64" font-weight="600">Batch the proxy's</text>
+    <text x="232" y="82" font-weight="600">rail doorbell</text>
+    <text x="232" y="106" fill="#4a5568">Vladimir Aerov,</text>
+    <text x="232" y="123" fill="#4a5568">co-author Anshuman Goswami</text>
+    <text x="232" y="148" fill="#4a5568">combine + JIT flag, +76 / -14</text>
+
+    <rect x="438" y="20" width="200" height="150" rx="8" fill="url(#hatch)" stroke="#a0aec0" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="448" y="42" class="m" fill="#718096">472847a</text>
+    <text x="448" y="64" font-weight="600" fill="#4a5568">Forward list as two</text>
+    <text x="448" y="82" font-weight="600" fill="#4a5568">FIFOs, remote first</text>
+    <text x="448" y="106" fill="#718096">Xuan Jiang</text>
+    <text x="448" y="123" fill="#718096">not covered here</text>
+    <text x="448" y="148" fill="#718096">dispatch + epilogue, +70 / -20</text>
+
+    <rect x="654" y="20" width="200" height="150" rx="8" fill="#f7fafc" stroke="#4a5568" stroke-width="1.5"/>
+    <text x="664" y="42" class="m" fill="#4a5568">a3572c7</text>
+    <text x="664" y="64" font-weight="600">One GIN context per SM,</text>
+    <text x="664" y="82" font-weight="600">13 by default, up to 41</text>
+    <text x="664" y="106" fill="#4a5568">Anshuman Goswami</text>
+    <text x="664" y="148" fill="#4a5568">host GIN layout, +37 / -40</text>
+
+    <rect x="870" y="20" width="204" height="150" rx="8" fill="#f7fafc" stroke="#4a5568" stroke-width="1.5"/>
+    <text x="880" y="42" class="m" fill="#4a5568">b9a76ff</text>
+    <text x="880" y="64" font-weight="600">Previous kernels on an</text>
+    <text x="880" y="82" font-weight="600">NCCL without THREAD put</text>
+    <text x="880" y="106" fill="#4a5568">Anshuman Goswami</text>
+    <text x="880" y="123" fill="#4a5568">3 copied headers</text>
+    <text x="880" y="148" fill="#4a5568">JIT selection, +2505 / -7</text>
+  </g>
+  <g stroke="#4a5568" stroke-width="1.5" marker-end="url(#ah)">
+    <line x1="206" y1="95" x2="220" y2="95"/><line x1="422" y1="95" x2="436" y2="95"/>
+    <line x1="638" y1="95" x2="652" y2="95"/><line x1="854" y1="95" x2="868" y2="95"/>
+  </g>
+</svg>
+<figcaption>Orange: the combine kernel. Grey: host code that sets up the GIN contexts and picks the kernels. Hatched: the commit this page does not cover.</figcaption>
+</figure>
+
+<h2 id="before-after">2. Who posts the combine's scale-out puts</h2>
+<p>In the unordered combine, each forward warp owns one channel. It reduces tokens from the scale-up buffers and writes them into the scale-out send buffer.
+It then hands a descriptor (send pointer, receive pointer, bytes, destination node) to the proxy warp through a small ring in shared memory.
+The proxy warp turns descriptors into GIN puts on the rail.
+PR 42 changes how the proxy warp does that, and who waits for the incoming puts.</p>
+<figure>
+<svg viewBox="0 0 1080 460" role="img" aria-label="Main against PR 42: who posts the puts and who waits">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+  </defs>
+  <text x="10" y="22" font-size="15" font-weight="700">main c81a983</text>
+  <text x="10" y="40" font-size="13" fill="#4a5568">one QP and one signal id per channel</text>
+  <text x="552" y="22" font-size="15" font-weight="700">PR 42 b9a76ff</text>
+  <text x="552" y="40" font-size="13" fill="#4a5568">one QP and one signal id per SM</text>
+  <line x1="540" y1="10" x2="540" y2="450" stroke="#e2e8f0" stroke-width="2"/>
+
+  <g font-size="12.5">
+    <g id="fwA">
+      <rect x="10" y="58" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="78">forward 0</text>
+      <rect x="10" y="98" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="118">forward 1</text>
+      <rect x="10" y="138" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="158">forward 2</text>
+      <rect x="10" y="178" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="198">forward 3</text>
+      <rect x="10" y="218" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="238">forward 4</text>
+      <rect x="10" y="258" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="278">forward 5</text>
+      <rect x="10" y="298" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="18" y="318">forward 6</text>
+    </g>
+    <g fill="#fff" stroke="#2b6cb0">
+      <rect x="118" y="62" width="44" height="22" rx="3"/><rect x="118" y="102" width="44" height="22" rx="3"/><rect x="118" y="142" width="44" height="22" rx="3"/>
+      <rect x="118" y="182" width="44" height="22" rx="3"/><rect x="118" y="222" width="44" height="22" rx="3"/><rect x="118" y="262" width="44" height="22" rx="3"/>
+      <rect x="118" y="302" width="44" height="22" rx="3"/>
+    </g>
+    <g font-size="11" fill="#2b6cb0"><text x="128" y="77">ring</text><text x="128" y="117">ring</text><text x="128" y="157">ring</text><text x="128" y="197">ring</text><text x="128" y="237">ring</text><text x="128" y="277">ring</text><text x="128" y="317">ring</text></g>
+    <g stroke="#2b6cb0" marker-end="url(#a2)">
+      <line x1="102" y1="73" x2="116" y2="73"/><line x1="102" y1="113" x2="116" y2="113"/><line x1="102" y1="153" x2="116" y2="153"/>
+      <line x1="102" y1="193" x2="116" y2="193"/><line x1="102" y1="233" x2="116" y2="233"/><line x1="102" y1="273" x2="116" y2="273"/>
+      <line x1="102" y1="313" x2="116" y2="313"/>
+    </g>
+    <rect x="182" y="58" width="168" height="270" rx="8" fill="#fffaf0" stroke="#c05621" stroke-width="1.5"/>
+    <text x="194" y="82" font-weight="700" fill="#c05621">proxy warp</text>
+    <text x="194" y="108" font-weight="600">SM90:</text>
+    <text x="194" y="126">lane i drains ring i</text>
+    <text x="194" y="152" font-weight="600">SM100 and later:</text>
+    <text x="194" y="170">one lane sweeps</text>
+    <text x="194" y="188">every ring</text>
+    <text x="194" y="216">each put rings the</text>
+    <text x="194" y="234">doorbell (flags 0)</text>
+    <text x="194" y="262">each put signals its</text>
+    <text x="194" y="280">channel's signal id</text>
+    <g stroke="#c05621" marker-end="url(#a2)">
+      <line x1="162" y1="73" x2="180" y2="90"/><line x1="162" y1="113" x2="180" y2="120"/><line x1="162" y1="153" x2="180" y2="160"/>
+      <line x1="162" y1="193" x2="180" y2="193"/><line x1="162" y1="233" x2="180" y2="226"/><line x1="162" y1="273" x2="180" y2="262"/>
+      <line x1="162" y1="313" x2="180" y2="300"/>
+    </g>
+    <g fill="#f0fff4" stroke="#2f855a">
+      <rect x="390" y="70" width="140" height="44" rx="6"/><rect x="390" y="134" width="140" height="44" rx="6"/>
+      <rect x="390" y="198" width="140" height="44" rx="6"/><rect x="390" y="262" width="140" height="44" rx="6"/>
+    </g>
+    <g fill="#2f855a"><text x="400" y="90">data QP of</text><text x="400" y="106">channels 0 and 1</text><text x="400" y="154">data QP of</text><text x="400" y="170">channels 2 and 3</text>
+      <text x="400" y="218">data QP of</text><text x="400" y="234">channels 4 and 5</text><text x="400" y="282">data QP of</text><text x="400" y="298">channel 6</text></g>
+    <g stroke="#2f855a" marker-end="url(#a2)">
+      <line x1="350" y1="100" x2="388" y2="92"/><line x1="350" y1="160" x2="388" y2="156"/><line x1="350" y1="220" x2="388" y2="220"/><line x1="350" y1="290" x2="388" y2="284"/>
+    </g>
+    <rect x="10" y="352" width="520" height="86" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
+    <text x="22" y="376" font-weight="700" fill="#6b46c1">Who waits for the incoming puts</text>
+    <text x="22" y="398">Each forward warp waits for its own channel's signal,</text>
+    <text x="22" y="416">target = shadow + sum over nodes of ceil(tokens / batch).</text>
+    <text x="22" y="432" fill="#718096" font-size="11.5">The QP grouping above is an example. It follows the SM-to-QP mapping of section 5.</text>
+  </g>
+
+  <g font-size="12.5">
+    <rect x="552" y="58" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="78">forward 0</text>
+    <rect x="552" y="98" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="118">forward 1</text>
+    <rect x="552" y="138" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="158">forward 2</text>
+    <rect x="552" y="178" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="198">forward 3</text>
+    <rect x="552" y="218" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="238">forward 4</text>
+    <rect x="552" y="258" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="278">forward 5</text>
+    <rect x="552" y="298" width="92" height="30" rx="5" fill="#ebf4ff" stroke="#2b6cb0"/><text x="560" y="318">forward 6</text>
+    <g fill="#fff" stroke="#2b6cb0">
+      <rect x="660" y="62" width="44" height="22" rx="3"/><rect x="660" y="102" width="44" height="22" rx="3"/><rect x="660" y="142" width="44" height="22" rx="3"/>
+      <rect x="660" y="182" width="44" height="22" rx="3"/><rect x="660" y="222" width="44" height="22" rx="3"/><rect x="660" y="262" width="44" height="22" rx="3"/>
+      <rect x="660" y="302" width="44" height="22" rx="3"/>
+    </g>
+    <g font-size="11" fill="#2b6cb0"><text x="670" y="77">ring</text><text x="670" y="117">ring</text><text x="670" y="157">ring</text><text x="670" y="197">ring</text><text x="670" y="237">ring</text><text x="670" y="277">ring</text><text x="670" y="317">ring</text></g>
+    <g stroke="#2b6cb0" marker-end="url(#a2)">
+      <line x1="644" y1="73" x2="658" y2="73"/><line x1="644" y1="113" x2="658" y2="113"/><line x1="644" y1="153" x2="658" y2="153"/>
+      <line x1="644" y1="193" x2="658" y2="193"/><line x1="644" y1="233" x2="658" y2="233"/><line x1="644" y1="273" x2="658" y2="273"/>
+      <line x1="644" y1="313" x2="658" y2="313"/>
+    </g>
+    <rect x="724" y="58" width="180" height="270" rx="8" fill="#fffaf0" stroke="#c05621" stroke-width="1.5"/>
+    <text x="736" y="82" font-weight="700" fill="#c05621">proxy warp, one lane</text>
+    <text x="736" y="108">every SM model</text>
+    <text x="736" y="134" font-weight="600">each round:</text>
+    <text x="736" y="152">1. count every ring</text>
+    <text x="736" y="170">2. post the snapshot</text>
+    <text x="736" y="198">doorbell deferred,</text>
+    <text x="736" y="216">rings on a node change</text>
+    <text x="736" y="234">and at the round's last put</text>
+    <text x="736" y="262">every put signals one</text>
+    <text x="736" y="280">signal id of the SM</text>
+    <text x="736" y="306" fill="#718096" font-size="11.5">puts per channel and node:</text>
+    <text x="736" y="321" fill="#718096" font-size="11.5">same count as in main</text>
+    <g stroke="#c05621" marker-end="url(#a2)">
+      <line x1="704" y1="73" x2="722" y2="90"/><line x1="704" y1="113" x2="722" y2="120"/><line x1="704" y1="153" x2="722" y2="160"/>
+      <line x1="704" y1="193" x2="722" y2="193"/><line x1="704" y1="233" x2="722" y2="226"/><line x1="704" y1="273" x2="722" y2="262"/>
+      <line x1="704" y1="313" x2="722" y2="300"/>
+    </g>
+    <rect x="924" y="128" width="148" height="128" rx="8" fill="#f0fff4" stroke="#2f855a" stroke-width="1.5"/>
+    <text x="934" y="150" font-weight="700" fill="#2f855a">channel 0's QP</text>
+    <text x="934" y="174">THREAD mode when</text>
+    <text x="934" y="191">the SM owns the QP</text>
+    <text x="934" y="208">and NCCL &#8805; 2.32.6</text>
+    <text x="934" y="232">otherwise the</text>
+    <text x="934" y="249">mapped mode</text>
+    <line x1="904" y1="192" x2="922" y2="192" stroke="#2f855a" stroke-width="3" marker-end="url(#a2)"/>
+    <rect x="552" y="352" width="520" height="86" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
+    <text x="564" y="376" font-weight="700" fill="#6b46c1">Who waits for the incoming puts</text>
+    <text x="564" y="398">The proxy lane waits once, after its last round,</text>
+    <text x="564" y="416">for the whole SM: target = shadow + sum over channels and</text>
+    <text x="564" y="432">nodes of ceil(tokens / batch).</text>
+  </g>
+</svg>
+<figcaption>Left: main. Right: PR 42. The forward warps' work is the same in both. What changes is the proxy and the arrival wait.
+PR 42 also sends a destination's last partial batch as soon as that destination is finished, instead of after the channel's loop (section 4).</figcaption>
+</figure>
+
+<h2 id="round">3. One proxy round</h2>
+<p>A round reads a snapshot of all rings first, and it posts only what that snapshot holds.
+The lane posts each descriptor one step late, so it knows the next descriptor's destination before it decides whether the current put rings the doorbell.</p>
+<figure>
+<svg viewBox="0 0 1080 270" role="img" aria-label="Flow of one proxy round">
+  <defs>
+    <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+  </defs>
+  <g font-size="13">
+    <rect x="8" y="80" width="200" height="78" rx="8" fill="#fffaf0" stroke="#c05621"/>
+    <text x="20" y="104" font-weight="700">Pass 1</text>
+    <text x="20" y="124">read head and done</text>
+    <text x="20" y="142">of every ring: total</text>
+    <polygon points="318,62 412,119 318,176 224,119" fill="#fff" stroke="#4a5568"/>
+    <text x="318" y="112" text-anchor="middle">total &#8805; F, or</text>
+    <text x="318" y="130" text-anchor="middle">a ring is done?</text>
+    <rect x="248" y="206" width="140" height="40" rx="8" fill="#f7fafc" stroke="#4a5568"/>
+    <text x="318" y="231" text-anchor="middle">sleep 1 &#181;s</text>
+    <rect x="440" y="80" width="250" height="78" rx="8" fill="#fffaf0" stroke="#c05621"/>
+    <text x="452" y="104" font-weight="700">Pass 2: walk the snapshot</text>
+    <text x="452" y="124">post the previous descriptor,</text>
+    <text x="452" y="142">ring if the next one changes node</text>
+    <rect x="712" y="80" width="160" height="78" rx="8" fill="#fffaf0" stroke="#c05621"/>
+    <text x="724" y="104" font-weight="700">Last descriptor</text>
+    <text x="724" y="124">post it and ring</text>
+    <text x="724" y="142">(no un-rung WQE left)</text>
+    <rect x="894" y="80" width="180" height="78" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
+    <text x="906" y="104" font-weight="700">All rings done?</text>
+    <text x="906" y="124">no: next round</text>
+    <text x="906" y="142">yes: wait for arrivals</text>
+  </g>
+  <g stroke="#4a5568" stroke-width="1.5" fill="none" marker-end="url(#a3)">
+    <line x1="208" y1="119" x2="222" y2="119"/>
+    <line x1="412" y1="119" x2="438" y2="119"/>
+    <line x1="318" y1="176" x2="318" y2="204"/>
+    <path d="M248,226 L108,226 L108,160"/>
+    <line x1="690" y1="119" x2="710" y2="119"/>
+    <line x1="872" y1="119" x2="892" y2="119"/>
+    <path d="M984,80 L984,40 L108,40 L108,78"/>
+  </g>
+  <g font-size="12" fill="#4a5568">
+    <text x="418" y="110">yes</text><text x="326" y="194">no</text><text x="520" y="34">no: start the next round</text>
+  </g>
+  <text x="8" y="264" font-size="12.5" fill="#4a5568">F = forward warps of the SM (its channel count: up to 4 with overlap off, up to 7 or 8 with overlap on). The floor only holds a round back while every forward warp is still producing.</text>
+</svg>
+<figcaption>A put that does not ring carries <span class="mono">ncclGinOptFlagsAggregateRequests</span>. The NCCL backend still forces a ring when too many WQEs wait (half of <span class="mono">max_batch</span> in THREAD mode).</figcaption>
+</figure>
+
+<h2 id="example">4. Worked example: one channel, two remote nodes, batch 6</h2>
+<p>Before the replay loop, each forward warp scans its forward list and counts the slots it owes every node.
+It then counts each destination down as it records slots.
+A batch is handed to the proxy when it holds <span class="mono">kBatchSize</span> slots, or when its destination reaches zero.
+When the total for all remote nodes reaches zero, the warp sets its ring's done flag.</p>
+<figure>
+<svg viewBox="0 0 1080 330" role="img" aria-label="Worked example of the per-destination countdown">
+  <defs>
+    <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c05621"/></marker>
+  </defs>
+  <text x="10" y="22" font-size="13" fill="#4a5568">Remote FIFO of one channel, in replay order. Node 1 is owed 14 slots, node 2 is owed 5. The batch size is 6.</text>
+  <g font-size="12" text-anchor="middle">
+    <g>
+      <rect x="10" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="35" y="62">n1</text>
+      <rect x="64" y="40" width="50" height="34" fill="#faf5ff" stroke="#6b46c1"/><text x="89" y="62">n2</text>
+      <rect x="118" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="143" y="62">n1</text>
+      <rect x="172" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="197" y="62">n1</text>
+      <rect x="226" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="251" y="62">n1</text>
+      <rect x="280" y="40" width="50" height="34" fill="#faf5ff" stroke="#6b46c1"/><text x="305" y="62">n2</text>
+      <rect x="334" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="359" y="62">n1</text>
+      <rect x="388" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0" stroke-width="2.5"/><text x="413" y="62">n1</text>
+      <rect x="442" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="467" y="62">n1</text>
+      <rect x="496" y="40" width="50" height="34" fill="#faf5ff" stroke="#6b46c1"/><text x="521" y="62">n2</text>
+      <rect x="550" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="575" y="62">n1</text>
+      <rect x="604" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="629" y="62">n1</text>
+      <rect x="658" y="40" width="50" height="34" fill="#faf5ff" stroke="#6b46c1"/><text x="683" y="62">n2</text>
+      <rect x="712" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="737" y="62">n1</text>
+      <rect x="766" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="791" y="62">n1</text>
+      <rect x="820" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0" stroke-width="2.5"/><text x="845" y="62">n1</text>
+      <rect x="874" y="40" width="50" height="34" fill="#faf5ff" stroke="#6b46c1" stroke-width="2.5"/><text x="899" y="62">n2</text>
+      <rect x="928" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0"/><text x="953" y="62">n1</text>
+      <rect x="982" y="40" width="50" height="34" fill="#ebf4ff" stroke="#2b6cb0" stroke-width="2.5"/><text x="1007" y="62">n1</text>
+    </g>
+    <g fill="#4a5568" font-size="11.5">
+      <text x="35" y="92">13</text><text x="89" y="92">4</text><text x="143" y="92">12</text><text x="197" y="92">11</text><text x="251" y="92">10</text>
+      <text x="305" y="92">3</text><text x="359" y="92">9</text><text x="413" y="92">8</text><text x="467" y="92">7</text><text x="521" y="92">2</text>
+      <text x="575" y="92">6</text><text x="629" y="92">5</text><text x="683" y="92">1</text><text x="737" y="92">4</text><text x="791" y="92">3</text>
+      <text x="845" y="92">2</text><text x="899" y="92">0</text><text x="953" y="92">1</text><text x="1007" y="92">0</text>
+    </g>
+  </g>
+  <text x="1040" y="92" font-size="11.5" fill="#4a5568">left</text>
+  <g stroke="#c05621" stroke-width="1.5" marker-end="url(#a4)">
+    <line x1="413" y1="100" x2="413" y2="128"/><line x1="845" y1="100" x2="845" y2="128"/>
+    <line x1="899" y1="100" x2="899" y2="176"/><line x1="1007" y1="100" x2="1007" y2="224"/>
+  </g>
+  <g font-size="12.5">
+    <rect x="300" y="132" width="226" height="40" rx="6" fill="#fffaf0" stroke="#c05621"/>
+    <text x="310" y="150">put 1: node 1, 6 slots</text><text x="310" y="166" fill="#4a5568" font-size="11.5">batch full</text>
+    <rect x="686" y="132" width="190" height="40" rx="6" fill="#fffaf0" stroke="#c05621"/>
+    <text x="696" y="150">put 2: node 1, 6 slots</text><text x="696" y="166" fill="#4a5568" font-size="11.5">batch full</text>
+    <rect x="720" y="180" width="230" height="40" rx="6" fill="#fffaf0" stroke="#c05621"/>
+    <text x="730" y="198">put 3: node 2, 5 slots</text><text x="730" y="214" fill="#4a5568" font-size="11.5">node 2 reached 0: sent now</text>
+    <rect x="830" y="228" width="240" height="40" rx="6" fill="#fffaf0" stroke="#c05621"/>
+    <text x="840" y="246">put 4: node 1, 2 slots, then done</text><text x="840" y="262" fill="#4a5568" font-size="11.5">node 1 and the remote total reached 0</text>
+  </g>
+  <g font-size="12.5">
+    <rect x="10" y="132" width="270" height="142" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
+    <text x="22" y="154" font-weight="700" fill="#6b46c1">Receiver side</text>
+    <text x="22" y="176">expects ceil(14/6) + ceil(5/6)</text>
+    <text x="22" y="194">= 3 + 1 = 4 arrivals</text>
+    <text x="22" y="212">from this channel, so the sender</text>
+    <text x="22" y="230">must send exactly ceil(n/6) puts</text>
+    <text x="22" y="248">per node. It does: full batches,</text>
+    <text x="22" y="264">then one partial batch.</text>
+  </g>
+  <g font-size="12.5" fill="#1a202c">
+    <text x="10" y="296">If one proxy round holds puts 1 to 4 in this order: put 1 does not ring (put 2 goes to node 1 too), put 2 rings (put 3 changes node),</text>
+    <text x="10" y="316">put 3 rings (put 4 changes node), put 4 rings (last of the round). Four puts, three doorbells. In main, put 3 waited for the end of the channel's loop.</text>
+  </g>
+</svg>
+<figcaption>Numbers under the cells: slots still owed to that cell's node after the slot is recorded. Thick border: the slot that triggers a hand-off.</figcaption>
+</figure>
+<div class="ctx">The pre-scan and the replay use the same slot rule. Without multiple reduction, a token gives one slot per valid top-k entry (expanded layout) or per distinct scale-up rank. With multiple reduction, a token gives one slot. A mismatch would change the number of puts, and then the receiver's count.</div>
+
+<h2 id="contexts">5. GIN contexts, data QPs and the sharing mode</h2>
+<p><span class="mono">num_allocated_qps</span> is the GIN context count <i>n</i>. Context 0 carries the notify barrier, contexts 1 to <i>n</i> - 1 are data QPs.
+The provider budget is 256 units per GPU, and a context costs 2 units plus 1 per indexed signal, so each context gets (256 - 2<i>n</i>) / <i>n</i> signals.
+A kernel on <i>s</i> SMs owns its QPs when <i>s</i> &#8804; <i>n</i> - 1. Otherwise all SMs share all data QPs.</p>
+<p>The combine proxy posts on its SM's first QP only (channel 0's QP).
+It uses THREAD mode when the SM owns that QP and the NCCL is 2.32.6 or later. On shared QPs it uses the mapped GPU mode.
+The dispatch spreads its channels over all of the SM's QPs.</p>
+<table>
+<tr><th>contexts <i>n</i></th><th>signals per context</th><th>data QPs</th><th>6 SMs</th><th>12 SMs</th><th>28 SMs</th><th>40 SMs</th></tr>
+<tr><td>11 (main, previous kernels)</td><td class="n">21</td><td class="n">10</td><td class="own">own: 1 or 2 QPs per SM</td><td class="shared">shared</td><td class="shared">shared</td><td class="shared">shared</td></tr>
+<tr><td>13 (new default)</td><td class="n">17</td><td class="n">12</td><td class="own">own: 2 QPs per SM, the combine posts on 1</td><td class="own">own: 1 QP per SM</td><td class="shared">shared</td><td class="shared">shared</td></tr>
+<tr><td>29 (28 SMs + 1)</td><td class="n">6</td><td class="n">28</td><td class="own">own: 4 or 5 per SM</td><td class="own">own: 2 or 3 per SM</td><td class="own">own: 1 per SM</td><td class="shared">shared</td></tr>
+<tr><td>41 (ceiling)</td><td class="n">4</td><td class="n">40</td><td class="own">own: 6 or 7 per SM</td><td class="own">own: 3 or 4 per SM</td><td class="own">own: 1 or 2 per SM</td><td class="own">own: 1 per SM</td></tr>
+</table>
+<p class="small"><span class="key" style="background:#f0fff4"></span>the SM owns its QPs (THREAD on NCCL 2.32.6 and later)<span class="key" style="background:#fff5f5"></span>QPs shared by all SMs (GPU mode).
+A caller that leaves <span class="mono">num_allocated_qps</span> at 0 gets 13 contexts, for example Megatron-LM's
+<a href="https://github.com/NVIDIA/Megatron-LM/blob/30b9ffe4391c57e8c7d9ec481f54497c1b14b372/megatron/core/transformer/moe/fused_a2a.py#L88-L117">get_elastic_buffer</a>.</p>
+
+<h3>Fewer signals per context mean fewer parts or fewer channels</h3>
+<p>The dispatch needs one signal per (channel on a QP) per part. <span class="mono">compute_part_allocation</span> first lowers the parts (4 at most), then the channels per SM, until channels per QP x parts fits the signals.
+With 41 contexts a QP has 4 signals, so an SM that owns one QP keeps at most 4 channels with 1 part. That limit applies with overlap on (7 channels) as well.</p>
+
+<h3>The rail cap</h3>
+<p>Every context also needs one signal per peer node on the rail. So a rail of <i>R</i> nodes fits at most 256 / (<i>R</i> + 1) contexts, and buffer creation clamps the request to that, with a warning.</p>
+<table>
+<tr><th>nodes <i>R</i></th><td>2 to 5</td><td>6</td><td>8</td><td>16</td><td>22</td><td>32</td></tr>
+<tr><th>most contexts</th><td class="n">41</td><td class="n">36</td><td class="n">28</td><td class="n">15</td><td class="n">11</td><td class="n">7</td></tr>
+</table>
+
+<h2 id="generations">6. Which kernels run</h2>
+<figure>
+<svg viewBox="0 0 1080 240" role="img" aria-label="Kernel generation selection by NCCL version">
+  <defs>
+    <marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+  </defs>
+  <g font-size="13">
+    <rect x="8" y="78" width="250" height="80" rx="8" fill="#f7fafc" stroke="#4a5568"/>
+    <text x="20" y="102" font-weight="700">ncclGetVersion()</text>
+    <text x="20" y="122">of the loaded library,</text>
+    <text x="20" y="140">read once per process</text>
+    <polygon points="360,70 450,118 360,166 270,118" fill="#fff" stroke="#4a5568"/>
+    <text x="360" y="114" text-anchor="middle">&#8805; 2.32.6?</text>
+    <text x="360" y="132" text-anchor="middle" font-size="11.5" fill="#4a5568">THREAD put exists</text>
+    <rect x="490" y="14" width="582" height="96" rx="8" fill="#fffaf0" stroke="#c05621"/>
+    <text x="502" y="38" font-weight="700">Current generation, default 13 contexts</text>
+    <text x="502" y="60" class="m" font-size="12">hybrid_dispatch_unordered.cuh, dispatch_copy_epilogue.cuh, hybrid_combine_unordered.cuh</text>
+    <text x="502" y="82">two-FIFO forward list, proxy rounds, one QP per SM in the combine</text>
+    <text x="502" y="100" fill="#4a5568" font-size="12">kNcclHasThreadPut = true (JIT flag EP_NCCL_RUNTIME_VERSION)</text>
+    <rect x="490" y="128" width="582" height="96" rx="8" fill="#f7fafc" stroke="#4a5568"/>
+    <text x="502" y="152" font-weight="700">Previous generation, default 11 contexts</text>
+    <text x="502" y="174" class="m" font-size="12">*_legacy.cuh: copies of main's three kernels, only a trailing note differs</text>
+    <text x="502" y="196">single forward list, main's proxy (per-arch), per-channel arrival waits</text>
+    <text x="502" y="214" fill="#4a5568" font-size="12">an explicit num_allocated_qps above 17 is no longer clamped to 17 here</text>
+  </g>
+  <g stroke="#4a5568" stroke-width="1.5" fill="none" marker-end="url(#a6)">
+    <line x1="258" y1="118" x2="268" y2="118"/>
+    <path d="M450,118 L470,118 L470,62 L488,62"/>
+    <path d="M470,118 L470,176 L488,176"/>
+  </g>
+  <g font-size="12" fill="#4a5568"><text x="476" y="56">yes</text><text x="476" y="194">no</text></g>
+</svg>
+<figcaption>The dispatch, its copy epilogue and the combine switch together, because only the current combine replays the two-FIFO list.
+The JIT cache keeps both generations apart because the header names differ.</figcaption>
+</figure>
+
+<h2 id="fifo">7. The forward list as two FIFOs (earlier commit, for context)</h2>
+<figure>
+<svg viewBox="0 0 1080 150" role="img" aria-label="Two FIFOs in one forward list buffer">
+  <defs>
+    <marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker>
+  </defs>
+  <rect x="10" y="40" width="1060" height="40" fill="#fff" stroke="#a0aec0"/>
+  <rect x="10" y="40" width="420" height="40" fill="#ebf4ff" stroke="#2b6cb0"/>
+  <rect x="430" y="40" width="40" height="40" fill="#fff5f5" stroke="#c53030"/>
+  <rect x="790" y="40" width="40" height="40" fill="#fff5f5" stroke="#c53030"/>
+  <rect x="830" y="40" width="240" height="40" fill="#edf2f7" stroke="#4a5568"/>
+  <g font-size="13">
+    <text x="20" y="65">remote tokens, entry 0 upward</text>
+    <text x="440" y="65" fill="#c53030">-1</text><text x="800" y="65" fill="#c53030">-1</text>
+    <text x="840" y="65">local tokens, from the top down</text>
+    <text x="10" y="30" class="m" font-size="12">entry 0</text>
+    <text x="960" y="30" class="m" font-size="12">kForwardListTop</text>
+    <text x="10" y="110">The combine replays the remote FIFO first, so its rail puts start earlier. The tail word carries both lengths with bit 31 set.</text>
+    <text x="10" y="130">The pre-scan of section 4 stops at the first -1, so it counts remote slots only.</text>
+  </g>
+</svg>
+</figure>
+
+<h2 id="code">8. Code map</h2>
+<table>
+<tr><th>What</th><th>Where (b9a76ff)</th></tr>
+<tr><td>Pre-scan: slots per destination</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L28-L76">hybrid_combine_unordered.cuh L28-L76</a></td></tr>
+<tr><td>Hand-off to the ring (timed wait for a free slot)</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L518-L560">L518-L560</a></td></tr>
+<tr><td>Countdown, early send and the done flag</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L562-L578">L562-L578</a>, end of channel <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L788-L795">L788-L795</a></td></tr>
+<tr><td>Slot rule in the replay</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L663-L707">L663-L707</a> (one slot per valid entry), <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L582-L591">L582-L591</a> (multiple reduction)</td></tr>
+<tr><td>Expected arrivals per SM</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L807-L861">L807-L861</a></td></tr>
+<tr><td>Proxy handle: THREAD or the mapped mode</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L864-L883">L864-L883</a></td></tr>
+<tr><td>Proxy round: floor, pass 1, pass 2</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L885-L970">L885-L970</a></td></tr>
+<tr><td>One arrival wait per SM</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L972-L990">L972-L990</a></td></tr>
+<tr><td>TMA buffer handle rebuilt inside each data-warp role</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L212-L219">L212-L219</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L471-L478">L471-L478</a></td></tr>
+<tr><td>Entry flush of all contexts (from main)</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L183-L189">L183-L189</a></td></tr>
+<tr><td>kNcclHasThreadPut</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/comm.cuh#L25-L35">comm.cuh L25-L35</a></td></tr>
+<tr><td>SM-to-QP mapping</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/qp_mapping.cuh#L62-L95">qp_mapping.cuh L62-L95</a></td></tr>
+<tr><td>Context constants, rail cap, signal check</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/gin_resource_alloc.cuh#L20-L75">gin_resource_alloc.cuh L20-L75</a></td></tr>
+<tr><td>Parts and channels per SM from the signals</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/gin_resource_alloc.cuh#L87-L140">gin_resource_alloc.cuh L87-L140</a></td></tr>
+<tr><td>Context count at buffer creation</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/backend/nccl.cu#L174-L207">nccl.cu L174-L207</a>, Python clamp <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/buffers/elastic.py#L364-L370">elastic.py L364-L370</a></td></tr>
+<tr><td>JIT flags: NCCL runtime version, batch size per arch</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/jit/compiler.hpp#L72-L92">compiler.hpp L72-L92</a></td></tr>
+<tr><td>Generation choice</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/kernel_select.hpp#L63-L86">kernel_select.hpp L63-L86</a>, used in <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L107">dispatch.hpp L107</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L355">L355</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/combine.hpp#L80-L81">combine.hpp L80-L81</a></td></tr>
+<tr><td>NCCL 2.32.6 THREAD put (one poster per QP, no mixing without a flush)</td><td><a href="https://github.com/NVIDIA/nccl/blob/ad2d192c1f279aefcaf340f67e07880b65a1116b/src/include/nccl_device/gin/efa_gda/gin_efa_gda.h#L162-L207">gin_efa_gda.h L162-L207</a> at v2.32.6-1</td></tr>
+</table>
+<p class="small">Notes for reading the PR at <span class="mono">b9a76ff</span>. The page describes the code only. It does not judge it.</p>
+</main>
+</body>
+</html>
