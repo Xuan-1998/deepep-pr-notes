@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DeepEP PR 46, the review replies</title>
+<style>
+:root { --fw:#2b6cb0; --fwb:#ebf4ff; --px:#c05621; --pxb:#fffaf0; --qp:#2f855a; --qpb:#f0fff4; --rx:#6b46c1; --rxb:#faf5ff; --hs:#4a5568; --hsb:#f7fafc; --ink:#1a202c; --mute:#718096; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; }
+main { max-width: 1120px; margin: 0 auto; padding: 28px 20px 80px; }
+h1 { font-size: 28px; margin: 0 0 6px; }
+h2 { font-size: 21px; margin: 44px 0 8px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+h3 { font-size: 17px; margin: 22px 0 6px; }
+p, li { max-width: 860px; }
+.sub { color: var(--mute); margin: 0 0 18px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+a { color: #2b6cb0; }
+nav { background: var(--hsb); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin: 16px 0 6px; }
+nav a { margin-right: 14px; white-space: nowrap; }
+figure { margin: 14px 0 6px; }
+figcaption { color: var(--mute); font-size: 14px; margin-top: 4px; max-width: 900px; }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+svg .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+table { border-collapse: collapse; margin: 10px 0 6px; font-size: 14.5px; }
+th, td { border: 1px solid #cbd5e0; padding: 5px 9px; text-align: left; vertical-align: top; }
+th { background: #edf2f7; }
+td.moved { background: var(--hsb); }
+td.ours { background: var(--fwb); }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.note { background: var(--pxb); border-left: 4px solid var(--px); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
+.ctx { background: var(--hsb); border-left: 4px solid var(--hs); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
+.small { font-size: 14px; color: var(--mute); }
+.cmt { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 12px 0; max-width: 980px; }
+.chd { margin-bottom: 4px; }
+.lab { display: inline-block; font-size: 12.5px; font-weight: 700; color: #fff; border-radius: 10px; padding: 1px 9px; background: #718096; }
+.lab.this-pr { background: #2b6cb0; } .lab.moved { background: #718096; } .lab.premise { background: #c05621; } .lab.agree { background: #2f855a; }
+.where { font-size: 14px; margin: 2px 0 6px; }
+.paste { background: #f7fafc; border-left: 4px solid #a0aec0; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cp { margin: 6px 0 2px; font-size: 13px; cursor: pointer; }
+.ev { font-size: 13.5px; color: #4a5568; margin-top: 4px; }
+pre.sass { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; overflow-x: auto; max-width: 900px; }
+svg a text { cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+<h1>DeepEP PR 46, the review replies</h1>
+<p class="sub">
+<a href="https://github.com/amazon-contributing/DeepEP/pull/46">amazon-contributing/DeepEP#46</a>,
+head <span class="mono">5492668</span>, a merge of <span class="mono">a6dfbf6</span> into main <span class="mono">c81a983</span>.
+Every code link below points at the head commit unless it says main or upstream.
+</p>
+
+<p>The PR brings the unordered kernel split (sgl-project/DeepEP PR 12, <span class="mono">9f86f31</span>) into this fork: the unordered path moves into <span class="mono">*_unordered</span> files, the ordered device headers go back to upstream's text, and the fork keeps <span class="mono">EP_HYBRID_KERNEL=unordered</span> as its default.
+The second reviewer left eight inline comments on 2026-11-24. Seven of them point at lines that main or upstream already has and that the refactor only moved, so GitHub shows them as added lines.
+Section 0 gives one reply per comment: the thread to reply in, the text, and how it was checked. Sections 1 to 6 hold the facts the replies lean on.</p>
+
+<nav>
+<a href="#comments">0. Where to reply what</a>
+<a href="#commits">1. Two commits</a>
+<a href="#moves">2. What moved where</a>
+<a href="#origins">3. The lines behind the comments</a>
+<a href="#ginconfig">4. gin_config on the two calls</a>
+<a href="#probes">5. Two compile probes</a>
+<a href="#code">6. Code map</a>
+</nav>
+
+<h2 id="comments">0. Where to reply what</h2>
+<p>Eight replies in the order of the review. Each "Where" link opens the comment's thread on the PR; paste the text as a reply there.
+The badge says what kind of answer it is: <span class="lab this-pr">this PR</span> the comment is about text this PR wrote, <span class="lab moved">moved</span> the lines are main's or upstream's and the PR only moved them, <span class="lab premise">premise</span> the comment rests on a reading the diff does not support, <span class="lab agree">agree</span> a change we would take.
+The small text under each reply says how it was checked and is not part of the reply. The texts carry no measurements, following the fork's convention.</p>
+
+<div class="cmt" id="r1">
+<div class="chd"><span class="lab this-pr">R1 &middot; this PR</span> <b>the NOTES comment in <code>create_dev_comm</code>: "was never written" became "has no signal budget"</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687111043">thread on nccl.cu L151</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/nccl.cu#L150-L153">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/csrc/kernels/backend/nccl.cu#L148-L151">the same comment on main</a></div>
+<div class="paste" id="p1">Fair, that clause is too compressed. On main the whole unordered GIN setup sits inside `if (with_gin and not gin_disabled)` ([nccl.cu L162-L206 at main](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/csrc/kernels/backend/nccl.cu#L162-L206)), so a `create_dev_comm` call without GIN left `gin_config` untouched, which the old comment called "never written". Here [`configure_unordered_gin`](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L28-L77) runs on every call when the unordered kernel is selected ([nccl.cu L176-L179](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/nccl.cu#L176-L179)), because it also owns the clamp of `num_allocated_qps` ([L35-L41](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L35-L41)). Without GIN it returns at [L45-L46](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L45-L46), after setting the context count and before `make_gin_resources` computes the indexed-signal budget ([L56-L58](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L56-L58)). So after the first call `gin_config_unordered` holds the clamped context count and a zero signal budget, and the second call, the one with GIN, recomputes both; the clamp is idempotent, so the context count stays and the budget is filled in. The end state is main's. One behavioural difference: the clamp and its `[WARN]` now also run on a call without GIN, so a single-node run with `num_allocated_qps` outside [2, 17] gets clamped and warned, where main left the value unused. I can reword the comment along these lines if you prefer.</div>
+<button class="cp" data-t="p1">Copy text</button>
+<div class="ev">Traced at c81a983 and 5492668: main's unordered block lives inside the <code>with_gin</code> branch (<a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/csrc/kernels/backend/nccl.cu#L162-L206">nccl.cu L162-L206</a>, written by d779c47); the PR's <code>configure_unordered_gin</code> clamps at L35-L41, returns at L45-L46 without GIN, computes the budget at L56-L58; <code>[2, 17]</code> is <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/gin_resource_alloc_unordered.cuh#L47-L48">kMinGinContextCnt, kMaxGinContextCnt</a>. The wording change is the merge commit's own (<code>git diff 5492668^1 5492668</code>), not Vova's a6dfbf6. The only comment of the eight about text this PR wrote. Section 4 draws both flows.</div>
+</div>
+
+<div class="cmt" id="r2">
+<div class="chd"><span class="lab moved">R2 &middot; moved</span> <b>does <code>trap_after_report</code> compile down to the trap?</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687545132">thread on diag_gin.cuh L24</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/diag_gin.cuh#L22-L28">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/common/diag_gin.cuh#L22-L28">the same lines on main</a></div>
+<div class="paste" id="p2">This function is main's (9e8851b, the `token_sync` check, [diag_gin.cuh L22-L28 at main](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/common/diag_gin.cuh#L22-L28)); this PR changes only the include line and the `comm::unordered::` prefix in the file. To the question: no. `clock64()` reads the `%clock64` special register, which the compiler never removes or merges, so the loop stays. I compiled the head's header with the check on for sm_90a and sm_100f: the function is `CS2R SR_CLOCKLO`, an add of `0x77359400` (the 2e9 cycles of `kNumOneSecCycles`), a `CS2R` / compare / `@!P0 BRA` loop, then `BPT.TRAP`. The same spin-then-trap form is upstream's own `timeout_while`, so a compiler that dropped it would have broken every timeout in upstream too.</div>
+<button class="cp" data-t="p2">Copy text</button>
+<div class="ev">Reproduced (compile only): a probe kernel calling <code>diag::trap_after_report()</code> built from the head's <code>deep_ep/include</code> with <code>-DEP_DEBUG_CHECKS=4</code>, nvcc 13.1, sm_90a and sm_100f; the SASS is in section 5. Traced: 9e8851b added the function, <code>git diff c81a983 5492668 -- diag_gin.cuh</code> is five lines (include, four <code>comm::unordered::</code>).</div>
+</div>
+
+<div class="cmt" id="r3">
+<div class="chd"><span class="lab moved">R3 &middot; moved</span> <b>the shadow load is weak, the signal load is relaxed: which is stronger?</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687651148">thread on diag_gin.cuh L54</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/diag_gin.cuh#L50-L56">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/common/diag_gin.cuh#L50-L56">the same lines on main</a></div>
+<div class="paste" id="p3">Also main's code (9e8851b); this PR changes `comm::kNumSignalBits` to `comm::unordered::kNumSignalBits` on that line. Your reading is right, the two loads differ, and the shadow one is the weaker of the two. In the SASS of the head (sm_90a and sm_100f give the same two instructions) the shadow dereference is a plain `LDG.E`, a `.weak` load, and the compiler even narrowed it to 32 bits because of the `kNumSignalBits` mask; `readSignal(..., relaxed)` goes through `cuda::atomic_ref&lt;uint64_t&gt;::load` ([gin__funcs.h L1134 at 2.32.3](https://github.com/NVIDIA/nccl/blob/12df1a11afad322be5a204a2db890161cbf8131d/src/include/nccl_device/impl/gin__funcs.h#L1130-L1135)), which is `LD.E.STRONG.SYS`, a `.relaxed.sys` load. In the PTX model a weak load has no ordering at all and a relaxed one is a strong operation; that has been the same since the memory model came with PTX 6.0 and sm_70, so no arch we build for changes it. Weak is enough here because of who writes the shadow: only this GPU's own threads, in `++(*shadow_ptr)` of the barrier ([comm_unordered.cuh L194](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L194)) and the waits, never the NIC or a peer ([getSignalShadowPtr](https://github.com/NVIDIA/nccl/blob/12df1a11afad322be5a204a2db890161cbf8131d/src/include/nccl_device/impl/gin__funcs.h#L1107-L1109) is a plain pointer into the local shadow array). `check_gin_signals` runs before the entry barrier in both kernels ([dispatch L304](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L304), [combine L140](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L140)), and the entry barrier starts with a grid sync (`gpu_barrier` with `kSyncAtStart`, [comm_unordered.cuh L259-L260](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L259-L260), called with it at [dispatch L306-L308](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L306-L308) and [combine L144-L146](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L144-L146)) before its legs increment a shadow, so no thread of the kernel writes a shadow while another reads one; the earlier writers are the previous kernels, ordered by the kernel boundary. A relaxed load would cost nothing and would state the intent. If you want it, I'd make that a small change to the check on main rather than part of this PR.</div>
+<button class="cp" data-t="p3">Copy text</button>
+<div class="ev">Reproduced (compile only): the probe of section 5 with <code>nvdisasm --print-line-info-inline</code> attributes <code>LDG.E</code> to diag_gin.cuh:54 and <code>LD.E.STRONG.SYS</code> to the <code>atomic_ref::load</code> under diag_gin.cuh:55 on both archs. Traced: the shadow writers (<a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L190-L194">comm_unordered.cuh L190-L194</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L786-L791">hybrid_combine_unordered.cuh L786-L791</a>), the grid sync at the start of <code>gpu_barrier</code> (<a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L259-L260">L259-L260</a>, <code>kSyncAtStart</code> is true at both entry calls; the inner <code>gin_barrier_wo_local_sync</code> is instantiated with <code>kFlushStores = false</code> there, so its own sync at L169 does not run), the check sites before it.</div>
+</div>
+
+<div class="cmt" id="r4">
+<div class="chd"><span class="lab moved">R4 &middot; moved</span> <b>is a non-finite value the only indicator of corruption?</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687717954">thread on combine_reduce_epilogue_unordered.cuh L170</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/combine_reduce_epilogue_unordered.cuh#L166-L176">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh#L168-L178">the same lines on main</a></div>
+<div class="paste" id="p4">No, and this check does not claim to be complete. It is main's `token_integrity` scan (0e7257e, [combine_reduce_epilogue.cuh L168-L178 at main](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh#L168-L178)), moved here unchanged. It catches NaN and Inf, which is the symptom this check was written for, and it catches garbage bit patterns: a bf16 is non-finite when its 8 exponent bits are all one, so a 7168-element token of random bits has about 28 of them. It does not catch finite wrong data: a stale token from the previous call, another token's payload, or zeros. Those need a content-independent oracle, a per-token tag (token index plus call count written next to the payload and compared at the reduce) or a checksum, which is a different check with a different cost. Worth its own ticket if we want it; it is independent of this PR.</div>
+<button class="cp" data-t="p4">Copy text</button>
+<div class="ev">Traced: 0e7257e added the scan to combine_reduce_epilogue.cuh; at 5492668 the ordered copy of that file is upstream's text again and the scan lives only in the unordered epilogue. Arithmetic: 7168 / 256 = 28 expected all-ones exponents in uniform random bits.</div>
+</div>
+
+<div class="cmt" id="r5">
+<div class="chd"><span class="lab moved">R5 &middot; moved</span> <b>move <code>tma_store_commit</code> later to overlap with the top-k weights?</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687759759">thread on combine_reduce_epilogue_unordered.cuh L182</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/combine_reduce_epilogue_unordered.cuh#L178-L188">code at the head</a> &middot; <a href="https://github.com/deepseek-ai/DeepEP/blob/01dc3aaac82068020353dce2c302e38153c0bfaa/deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh#L119-L127">the same lines upstream</a></div>
+<div class="paste" id="p5">These lines are upstream's ([combine_reduce_epilogue.cuh L119-L127 at 01dc3aa](https://github.com/deepseek-ai/DeepEP/blob/01dc3aaac82068020353dce2c302e38153c0bfaa/deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh#L119-L127)), and after this PR the ordered epilogue has them byte for byte as upstream does. `tma_store_commit` is one instruction, `cp.async.bulk.commit_group` ([ptx.cuh L161-L163](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/ptx.cuh#L161-L163)), that closes the bulk group; the wait that costs time is the `tma_store_wait` at the next token's buffer release ([L154-L157](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/combine_reduce_epilogue_unordered.cuh#L154-L157)). The `__syncwarp()` after the elected lane reconverges the warp after that lane's two instructions, store and commit, so what the other 31 lanes pay per token is the issue of those two instructions, against a body that reads up to top-k source tokens per output token. Moving the commit is a perf change: it needs a paired A/B on the epilogue and it would make the unordered epilogue diverge from upstream's. I'd keep it out of this refactor, whose point is that the tree equals the cherry-pick we validated, and put it on the list of things to measure.</div>
+<button class="cp" data-t="p5">Copy text</button>
+<div class="ev">Traced: <code>git diff 01dc3aa 5492668 -- deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh</code> is empty (section 2), the unordered copy carries the same lines at L178-L188, <code>tma_store_commit</code> and <code>tma_store_wait</code> are <code>asm volatile</code> one-liners in ptx.cuh. The cost of the syncwarp was not measured; the sentence about it is a reading of the code.</div>
+</div>
+
+<div class="cmt" id="r6">
+<div class="chd"><span class="lab agree">R6 &middot; agree</span> <b>a comment on why the dispatch zeroes its headers and the combine does not</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687841898">thread on hybrid_dispatch_unordered.cuh L283</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L281-L290">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L280-L289">the same lines on main</a></div>
+<div class="paste" id="p6">Agreed, one sentence would help. The reason: the dispatch forwarder polls in-band sub-part headers that live in `buffer` ([pack and unpack at L30-L39](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L30-L39), [read_batch_header at L827](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L827)), and `buffer` is overwritten by the combine between two dispatches, so a stale word can read as a landed sub-part (the hang that 2f4ce10 fixed). The combine's scale-out receiver counts GIN signals ([hybrid_combine_unordered.cuh L787-L791](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L787-L791)) and never reads a payload word as a landed flag, so it has nothing to zero. The zeroing is main's code; adding the sentence in this PR would move the tree away from the one we validated, so I'd add it as a one-line follow-up right after this lands, unless you prefer it here.</div>
+<button class="cp" data-t="p6">Copy text</button>
+<div class="ev">Traced: 2f4ce10 added the entry clear; the header words are read by <code>read_batch_header</code> and written by <code>stage_part_header</code> (L549-L552); the combine's receive wait compares <code>readSignal</code> with the shadow and has no header read. The tree of 5492668 equals e730420's, the one the 2-, 4- and 8-node matrices ran on.</div>
+</div>
+
+<div class="cmt" id="r7">
+<div class="chd"><span class="lab premise">R7 &middot; premise</span> <b>"ncclCoopThread was passed in the deleted lines" (combine entry flush)</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687845705">thread on hybrid_combine_unordered.cuh L136</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L134-L136">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L133-L135">the same lines on main</a></div>
+<div class="paste" id="p7">Neither call site passed a coop before or after: the hunk changes `comm::flush_gin_contexts&lt;...&gt;(` to `comm::unordered::flush_gin_contexts&lt;...&gt;(` and keeps the argument line as it was ([main L133-L135](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L133-L135) against [L134-L136 here](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L134-L136)). The coop lives inside the helper, `flush_with_timeout&lt;kNumTimeoutCycles&gt;(ncclGin(nccl_dev_comm, i), ncclCoopWarp())`, which moved verbatim from [comm.cuh L102-L106 at main](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/common/comm.cuh#L102-L106) to [comm_unordered.cuh L58-L62](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L58-L62). The deleted lines that name `ncclCoopThread` and `ncclCoopWarp` are those moved definitions in comm.cuh (the flush, `report_gin_queue`, the barrier wait), and the one added coop line in comm.cuh is upstream's own `flush(ncclCoopWarp())` in the restored ordered barrier. I think the diff view put the comm.cuh hunks next to this one.</div>
+<button class="cp" data-t="p7">Copy text</button>
+<div class="ev">Traced: <code>git diff c81a983 5492668 | grep ncclCoop</code> lists eight lines, all in comm.cuh and comm_unordered.cuh, none in the two kernels; the kernel hunks change the namespace only. Same answer serves R8.</div>
+</div>
+
+<div class="cmt" id="r8">
+<div class="chd"><span class="lab premise">R8 &middot; premise</span> <b>"why is ncclCoopWarp not passed when it is in the deleted lines" (dispatch entry flush)</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/46#discussion_r4687848868">thread on hybrid_dispatch_unordered.cuh L278</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L277-L279">code at the head</a> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L276-L278">the same lines on main</a></div>
+<div class="paste" id="p8">Same as on the combine: the call site never passed a coop ([main L276-L278](https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L276-L278) against [L277-L279 here](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L277-L279)); `ncclCoopWarp()` is inside `flush_gin_contexts`, which moved unchanged to [comm_unordered.cuh L58-L62](https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L58-L62). The flush runs with the same warp coop as on main.</div>
+<button class="cp" data-t="p8">Copy text</button>
+<div class="ev">Traced: as R7.</div>
+</div>
+
+<h2 id="commits">1. The two commits</h2>
+<figure>
+<svg viewBox="0 0 1140 250" role="img" aria-label="Commit graph of PR 46">
+<line x1="40" y1="70" x2="900" y2="70" stroke="#4a5568" stroke-width="2.5"/>
+<line x1="290" y1="70" x2="440" y2="170" stroke="#c05621" stroke-width="2.5"/>
+<line x1="440" y1="170" x2="780" y2="170" stroke="#c05621" stroke-width="2.5"/>
+<line x1="780" y1="170" x2="900" y2="70" stroke="#c05621" stroke-width="2.5"/>
+<circle cx="120" cy="70" r="9" fill="#fff" stroke="#4a5568" stroke-width="2.5"/>
+<circle cx="290" cy="70" r="9" fill="#fff" stroke="#4a5568" stroke-width="2.5"/>
+<circle cx="540" cy="70" r="9" fill="#fff" stroke="#4a5568" stroke-width="2.5"/>
+<circle cx="740" cy="70" r="9" fill="#fff" stroke="#4a5568" stroke-width="2.5"/>
+<circle cx="900" cy="70" r="11" fill="#ebf4ff" stroke="#2b6cb0" stroke-width="3"/>
+<circle cx="440" cy="170" r="9" fill="#fffaf0" stroke="#c05621" stroke-width="2.5"/>
+<text x="120" y="42" text-anchor="middle" font-size="13" fill="#4a5568">earlier main</text>
+<text x="290" y="42" text-anchor="middle" font-size="13" class="m">7529a22</text>
+<text x="290" y="24" text-anchor="middle" font-size="12.5" fill="#718096">the refactor's base</text>
+<text x="540" y="42" text-anchor="middle" font-size="13" fill="#4a5568">d779c47, 0e7257e, 9e8851b, a209bc5 ...</text>
+<text x="540" y="24" text-anchor="middle" font-size="12.5" fill="#718096">main's changes since then</text>
+<text x="740" y="42" text-anchor="middle" font-size="13" class="m">c81a983</text>
+<text x="740" y="24" text-anchor="middle" font-size="12.5" fill="#718096">main today</text>
+<text x="900" y="42" text-anchor="middle" font-size="13" class="m" font-weight="700">5492668</text>
+<text x="900" y="24" text-anchor="middle" font-size="12.5" fill="#718096">merge, the PR head</text>
+<text x="440" y="200" text-anchor="middle" font-size="13" class="m">a6dfbf6</text>
+<text x="440" y="218" text-anchor="middle" font-size="12.5" fill="#718096">9f86f31 cherry-picked onto 7529a22: same patch, new SHA</text>
+<text x="440" y="234" text-anchor="middle" font-size="12.5" fill="#718096">"move the unordered EP communication kernels into a separate path"</text>
+<text x="925" y="96" font-size="12.5" fill="#2b6cb0">resolution: main's changes</text>
+<text x="925" y="112" font-size="12.5" fill="#2b6cb0">since 7529a22 go into the</text>
+<text x="925" y="128" font-size="12.5" fill="#2b6cb0">*_unordered files; the tree</text>
+<text x="925" y="144" font-size="12.5" fill="#2b6cb0">is e730420's, the validated one</text>
+</svg>
+<figcaption>Grey: the fork's main. Orange: the refactor commit, authored on 7529a22 so that it keeps the refactor's own history point. Blue: the merge commit, whose resolution is the only hand-written part of the PR. The first version of the PR merged 9f86f31 itself and brought eight sgl-project commits into the history; the reviewer asked for a branch from 7529a22 instead, which is this shape.</figcaption>
+</figure>
+<p>What the merge resolution had to do: main moved from 7529a22 to c81a983 after the refactor was written, and those commits (the single-node GIN gate d779c47, the <span class="mono">token_integrity</span>, <span class="mono">token_sync</span> and queue checks, the entry flush a209bc5, the header clear 2f4ce10 and others) edited the files the refactor splits. The resolution puts each of those changes into the file where the refactor keeps that code, so every "added" line in the <span class="mono">*_unordered</span> files is either Vova's move or main's text in its new place. The result equals the cherry-pick we validated earlier (<span class="mono">git rev-parse 5492668^{tree}</span> = <span class="mono">1ff79c26f4a6</span> = e730420's tree).</p>
+
+<h2 id="moves">2. What moved where</h2>
+<p>Left: the file on main. Right: where the PR keeps that code. The last column lists the replies whose lines sit in that file.</p>
+<table>
+<tr><th>Main c81a983</th><th>PR 5492668</th><th>What the PR did</th><th>Replies</th></tr>
+<tr><td>common/comm.cuh</td><td>common/comm.cuh <b>and</b> common/comm_unordered.cuh (new)</td><td>comm.cuh back to upstream's text (0 differing lines against 01dc3aa). The fork's GIN layer (flush_with_timeout, flush_gin_contexts, report_gin_queue, the signal-counting barrier, the QP partition) moves to comm_unordered.cuh in namespace <code>comm::unordered</code>.</td><td><a href="#r7" class="lab premise" style="text-decoration:none">R7</a> <a href="#r8" class="lab premise" style="text-decoration:none">R8</a> <a href="#r3" class="lab moved" style="text-decoration:none">R3</a></td></tr>
+<tr><td>common/layout.cuh</td><td>common/layout.cuh and common/layout_unordered.cuh (new)</td><td>layout.cuh back to upstream; the unordered buffer layouts move out.</td><td></td></tr>
+<tr><td>common/gin_resource_alloc.cuh, qp_mapping.cuh, impls/proxy_ring.cuh</td><td>the same names with <code>_unordered</code></td><td>Renamed, content unchanged apart from the namespace.</td><td></td></tr>
+<tr><td>common/diag_gin.cuh</td><td>common/diag_gin.cuh</td><td>Stays. Five changed lines: the include and <code>comm::unordered::</code>.</td><td><a href="#r2" class="lab moved" style="text-decoration:none">R2</a> <a href="#r3" class="lab moved" style="text-decoration:none">R3</a></td></tr>
+<tr><td>impls/combine_reduce_epilogue.cuh</td><td>impls/combine_reduce_epilogue.cuh and impls/combine_reduce_epilogue_unordered.cuh (new)</td><td>The ordered epilogue back to upstream's text; the fork's epilogue (two-FIFO replay, forward-list tail, the non-finite scan) becomes the unordered copy.</td><td><a href="#r4" class="lab moved" style="text-decoration:none">R4</a> <a href="#r5" class="lab moved" style="text-decoration:none">R5</a></td></tr>
+<tr><td>impls/combine_utils.cuh, impls/pp_send_recv.cuh</td><td>same files</td><td>Back to upstream's text.</td><td></td></tr>
+<tr><td>impls/hybrid_dispatch_unordered.cuh, impls/hybrid_combine_unordered.cuh</td><td>same files</td><td>Stay. Changed lines are namespace prefixes (<code>comm::unordered::</code>, <code>layout::BufferLayoutUnordered</code>) and the new includes.</td><td><a href="#r6" class="lab agree" style="text-decoration:none">R6</a> <a href="#r7" class="lab premise" style="text-decoration:none">R7</a> <a href="#r8" class="lab premise" style="text-decoration:none">R8</a></td></tr>
+<tr><td>csrc/kernels/backend/nccl.cu</td><td>nccl.cu and csrc/kernels/backend/gin_unordered.hpp (new)</td><td>The unordered GIN configuration becomes <code>configure_unordered_gin</code>; the merge resolution carries the single-node gate (d779c47) into it and rewords its NOTES comment.</td><td><a href="#r1" class="lab this-pr" style="text-decoration:none">R1</a></td></tr>
+<tr><td>csrc/kernels/elastic/dispatch.hpp, combine.hpp</td><td>same files and dispatch_unordered.hpp, combine_unordered.hpp (new)</td><td>The JIT launchers of the unordered kernels move into their own files.</td><td></td></tr>
+<tr><td>csrc/elastic/buffer.hpp, kernel_select.hpp, api.cuh, barrier.hpp, python_api.cpp, deep_ep/buffers/elastic.py, compiled.cuh, README</td><td>same files</td><td>Host plumbing follows the split; <code>EP_HYBRID_KERNEL</code> defaults to unordered as before.</td><td></td></tr>
+</table>
+<p class="small">Checked with <span class="mono">git diff 01dc3aa 5492668 -- &lt;file&gt;</span> for each ordered device header the PR touches: comm.cuh, layout.cuh, combine_reduce_epilogue.cuh, combine_utils.cuh, pp_send_recv.cuh and csrc/python_api.cpp have 0 differing lines against upstream. The host files differ, as they must, to select between the two paths.</p>
+
+<h2 id="origins">3. The lines behind the comments</h2>
+<p>For each comment: the line it sits on at the head, the commit on main (or upstream) that wrote those lines, and what the PR changed there. "Origin" is <span class="mono">git log -S</span> of the commented text on main c81a983.</p>
+<table>
+<tr><th>Reply</th><th>File and line at 5492668</th><th>Origin of the lines</th><th>Changed by this PR</th></tr>
+<tr><td><a href="#r1">R1</a></td><td class="ours">nccl.cu L150-L153</td><td>d779c47 (the single-node GIN gate) wrote the comment on main</td><td class="ours">Yes: the merge resolution reworded it for the new flow</td></tr>
+<tr><td><a href="#r2">R2</a></td><td class="moved">diag_gin.cuh L24-L28</td><td>9e8851b (<code>token_sync</code>)</td><td class="moved">No</td></tr>
+<tr><td><a href="#r3">R3</a></td><td class="moved">diag_gin.cuh L54-L55</td><td>9e8851b</td><td class="moved"><code>comm::</code> to <code>comm::unordered::</code></td></tr>
+<tr><td><a href="#r4">R4</a></td><td class="moved">combine_reduce_epilogue_unordered.cuh L166-L176</td><td>0e7257e (<code>token_integrity</code>), in combine_reduce_epilogue.cuh L168-L178 on main</td><td class="moved">No, moved to the new file</td></tr>
+<tr><td><a href="#r5">R5</a></td><td class="moved">combine_reduce_epilogue_unordered.cuh L178-L184</td><td>upstream b306af0, combine_reduce_epilogue.cuh L119-L127 at 01dc3aa</td><td class="moved">No, moved; the ordered file keeps the identical lines</td></tr>
+<tr><td><a href="#r6">R6</a></td><td class="moved">hybrid_dispatch_unordered.cuh L285-L290</td><td>2f4ce10 (clear the scale-out headers at kernel entry)</td><td class="moved">No</td></tr>
+<tr><td><a href="#r7">R7</a></td><td class="moved">hybrid_combine_unordered.cuh L134-L136</td><td>a209bc5 (flush at entry)</td><td class="moved"><code>comm::</code> to <code>comm::unordered::</code></td></tr>
+<tr><td><a href="#r8">R8</a></td><td class="moved">hybrid_dispatch_unordered.cuh L277-L279</td><td>a209bc5</td><td class="moved"><code>comm::</code> to <code>comm::unordered::</code></td></tr>
+</table>
+<p class="small"><span class="key" style="background:var(--fwb)"></span> text this PR wrote <span class="key" style="background:var(--hsb)"></span> main's or upstream's lines, moved or prefixed.</p>
+
+<h2 id="ginconfig">4. <code>gin_config</code> on the two calls (R1)</h2>
+<p><span class="mono">create_dev_comm</span> can run twice in one process: once from the constructor, and once more for <span class="mono">gin_dev_comm</span> when the constructor skipped GIN (a single NVLink domain whose PP or Engram later asks for it, d779c47). The NOTES comment describes what the first call leaves behind.</p>
+<table>
+<tr><th></th><th>main c81a983 (<a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/csrc/kernels/backend/nccl.cu#L144-L256">nccl.cu L144-L256</a>)</th><th>PR 5492668 (<a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/nccl.cu#L146-L196">nccl.cu L146-L196</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L28-L77">gin_unordered.hpp L28-L77</a>)</th></tr>
+<tr><td>Call 1, no GIN</td><td>The unordered block is inside <code>if (with_gin and not gin_disabled)</code> (L162), so nothing touches <code>gin_config</code> or clamps <code>num_allocated_qps</code>. At the bottom, 0 becomes the default count.</td><td><code>configure_unordered_gin</code> runs (L176-L179): clamps <code>num_allocated_qps</code> into [2, 17] with a <code>[WARN]</code> if it moved (L35-L41), sets <code>gin_context_cnt</code> (L44), returns before the budget (L45-L46). <code>gin_indexed_signals_cnt</code> stays 0.</td></tr>
+<tr><td>Call 2, with GIN</td><td>The block runs: clamp, <code>make_gin_resources</code>, the signal assert, <code>num_allocated_qps = gin_context_cnt</code> (L172-L203).</td><td><code>configure_unordered_gin</code> runs again: the clamp is a no-op on an in-range value, <code>make_gin_resources</code> fills the budget (L56-L58), the assert follows (L63-L65).</td></tr>
+<tr><td>End state</td><td colspan="2">The same context count and signal budget on both sides. The one difference is on call 1: the PR clamps and may warn where main did nothing, so a run that never asks for GIN with a value outside [2, 17] now sees the clamp.</td></tr>
+</table>
+<p class="small">"has no signal budget" in the new comment is this zero <code>gin_indexed_signals_cnt</code> after call 1. A reworded version: "a second call (for <code>gin_dev_comm</code>) only happens when the constructor skipped GIN; that first call ran <code>configure_unordered_gin</code> without GIN, which clamps <code>num_allocated_qps</code> and sets the context count but returns before the signal budget, so this call recomputes both and ends with the values the constructor produced before the gate existed."</p>
+
+<h2 id="probes">5. Two compile probes (R2, R3)</h2>
+<p>One probe file, two kernels, built from the head's <span class="mono">deep_ep/include</span> with <span class="mono">-DEP_DEBUG_CHECKS=4</span> (the <span class="mono">token_sync</span> bit) by nvcc 13.1 for sm_90a and sm_100f, then <span class="mono">cuobjdump -sass</span> and <span class="mono">nvdisasm --print-line-info-inline</span>.</p>
+<h3>R2: the spin before the trap survives</h3>
+<pre class="sass">probe_trap (sm_90a; sm_100f is the same sequence)
+  LDG.E R2, desc[UR4][R2.64]           load the flag
+  ISETP.NE.AND P0, PT, R2, RZ, PT
+  @!P0 EXIT
+  CS2R R2, SR_CLOCKLO                  clock64()
+  IADD3 R5, P0, R2, 0x77359400, RZ     + kNumOneSecCycles (2,000,000,000)
+  CS2R R2, SR_CLOCKLO                  loop: clock64()
+  ISETP.GE.U32.AND P0, PT, R2, R5, PT
+  ISETP.GE.AND.EX P0, PT, R3, R7, PT, P0
+  @!P0 BRA 0x90                        while (clock64() &lt; stop)
+  BPT.TRAP 0x1                         ptx::trap()</pre>
+<h3>R3: the two loads of <span class="mono">check_gin_signals</span></h3>
+<pre class="sass">diag_gin.cuh:54   shadow = *gin.getSignalShadowPtr(signal_id) &amp; mask
+  LDG.E R2, desc[UR4][R2.64]           weak load (narrowed to 32 bits by the mask)
+
+diag_gin.cuh:55   gin.readSignal(signal_id, kNumSignalBits, memory_order_relaxed)
+  -&gt; gin__funcs.h:1134  cuda::atomic_ref&lt;uint64_t&gt;{*sig.ptr}.load(ord)
+  LD.E.STRONG.SYS R12, desc[UR4][R12.64]   relaxed load at system scope</pre>
+<p class="small">Both archs give the same two instruction forms. The attribution comes from the inline line info: <span class="mono">LDG.E</span> carries <span class="mono">diag_gin.cuh:54</span>, <span class="mono">LD.E.STRONG.SYS</span> carries the <span class="mono">atomic_ref::load</span> chain under <span class="mono">diag_gin.cuh:55</span>.</p>
+
+<h2 id="code">6. Code map</h2>
+<table>
+<tr><th>What</th><th>Where (5492668)</th></tr>
+<tr><td>NOTES comment and the two <code>create_dev_comm</code> calls <a href="#r1" class="lab this-pr" style="text-decoration:none">R1</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/nccl.cu#L146-L196">nccl.cu L146-L196</a>, main's version <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/csrc/kernels/backend/nccl.cu#L144-L256">L144-L256 at c81a983</a></td></tr>
+<tr><td><code>configure_unordered_gin</code>: clamp, early return, budget <a href="#r1" class="lab this-pr" style="text-decoration:none">R1</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/csrc/kernels/backend/gin_unordered.hpp#L28-L77">gin_unordered.hpp L28-L77</a></td></tr>
+<tr><td><code>trap_after_report</code> <a href="#r2" class="lab moved" style="text-decoration:none">R2</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/diag_gin.cuh#L22-L28">diag_gin.cuh L22-L28</a></td></tr>
+<tr><td><code>check_gin_signals</code>, the shadow and signal reads <a href="#r3" class="lab moved" style="text-decoration:none">R3</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/diag_gin.cuh#L39-L68">diag_gin.cuh L39-L68</a>; NCCL 2.32.3 <a href="https://github.com/NVIDIA/nccl/blob/12df1a11afad322be5a204a2db890161cbf8131d/src/include/nccl_device/impl/gin__funcs.h#L1107-L1109">getSignalShadowPtr</a>, <a href="https://github.com/NVIDIA/nccl/blob/12df1a11afad322be5a204a2db890161cbf8131d/src/include/nccl_device/impl/gin__funcs.h#L1130-L1135">readSignal</a></td></tr>
+<tr><td>Who increments a shadow: the barrier wait, the combine's scale-out wait <a href="#r3" class="lab moved" style="text-decoration:none">R3</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L151-L214">comm_unordered.cuh L151-L214</a> (increment L194), <code>gpu_barrier</code> <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L246-L300">L246-L300</a> (grid sync at the start L259-L260), <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L786-L791">hybrid_combine_unordered.cuh L786-L791</a></td></tr>
+<tr><td>Where the check runs in each kernel <a href="#r3" class="lab moved" style="text-decoration:none">R3</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L302-L304">dispatch L302-L304</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L138-L140">combine L138-L140</a></td></tr>
+<tr><td>Non-finite scan <a href="#r4" class="lab moved" style="text-decoration:none">R4</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/combine_reduce_epilogue_unordered.cuh#L166-L176">combine_reduce_epilogue_unordered.cuh L166-L176</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/diag.cuh">scan_nonfinite in diag.cuh</a></td></tr>
+<tr><td>TMA store, commit, wait <a href="#r5" class="lab moved" style="text-decoration:none">R5</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/combine_reduce_epilogue_unordered.cuh#L154-L188">combine_reduce_epilogue_unordered.cuh L154-L188</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/ptx.cuh#L126-L128">ptx.cuh L126-L128</a> and <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/ptx.cuh#L161-L163">L161-L163</a>; upstream <a href="https://github.com/deepseek-ai/DeepEP/blob/01dc3aaac82068020353dce2c302e38153c0bfaa/deep_ep/include/deep_ep/impls/combine_reduce_epilogue.cuh#L104-L127">combine_reduce_epilogue.cuh L104-L127 at 01dc3aa</a></td></tr>
+<tr><td>In-band headers of the dispatch, the entry clear <a href="#r6" class="lab agree" style="text-decoration:none">R6</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L30-L39">hybrid_dispatch_unordered.cuh L30-L39</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L281-L300">L281-L300</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L549-L552">stage_part_header L549-L552</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L827">read_batch_header L827</a></td></tr>
+<tr><td>Entry flush helper and its two call sites <a href="#r7" class="lab premise" style="text-decoration:none">R7</a> <a href="#r8" class="lab premise" style="text-decoration:none">R8</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm_unordered.cuh#L38-L62">comm_unordered.cuh L38-L62</a> (main: <a href="https://github.com/amazon-contributing/DeepEP/blob/c81a983d733892104edebc01f2eb13f0b10ac9fe/deep_ep/include/deep_ep/common/comm.cuh#L82-L106">comm.cuh L82-L106</a>), <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_dispatch_unordered.cuh#L274-L279">dispatch L274-L279</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L130-L136">combine L130-L136</a></td></tr>
+<tr><td>The restored ordered barrier with upstream's <code>flush(ncclCoopWarp())</code></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/549266809ff488e804422b8b6ec1f9ccb92ffac8/deep_ep/include/deep_ep/common/comm.cuh#L131-L187">comm.cuh L131-L187</a></td></tr>
+</table>
+<p class="small">Notes for answering the review of the PR at <span class="mono">5492668</span>. Section 0 holds replies that are not posted yet.</p>
+<script>document.querySelectorAll(".cp").forEach(b => b.addEventListener("click", () => { navigator.clipboard.writeText(document.getElementById(b.dataset.t).textContent); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy text", 1500); }));</script>
+</main>
+</body>
+</html>
