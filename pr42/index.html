@@ -34,6 +34,15 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
 .note { background: var(--pxb); border-left: 4px solid var(--px); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
 .ctx { background: var(--hsb); border-left: 4px solid var(--hs); padding: 8px 12px; margin: 12px 0; max-width: 900px; }
 .small { font-size: 14px; color: var(--mute); }
+.cmt { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 12px 0; max-width: 980px; }
+.chd { margin-bottom: 4px; }
+.lab { display: inline-block; font-size: 12.5px; font-weight: 700; color: #fff; border-radius: 10px; padding: 1px 9px; background: #718096; }
+.lab.blocking { background: #c53030; } .lab.should-fix { background: #c05621; } .lab.question { background: #2b6cb0; } .lab.nit { background: #718096; } .lab.PR-level { background: #4a5568; }
+.where { font-size: 14px; margin: 2px 0 6px; }
+.paste { background: #f7fafc; border-left: 4px solid #a0aec0; padding: 8px 12px; white-space: pre-wrap; }
+.cp { margin: 6px 0 2px; font-size: 13px; cursor: pointer; }
+.ev { font-size: 13.5px; color: #4a5568; margin-top: 4px; }
+svg a text { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -48,8 +57,10 @@ Every code link below points at the head commit.
 <p>The PR changes how the unordered combine sends its scale-out (rail) traffic, and it adds the host settings that this needs.
 It has five commits. This page explains four of them in detail.
 The middle commit in the diagram below, <span class="mono">472847a</span> (the forward list as two FIFOs), was reviewed earlier and is not covered here. It only appears where the others depend on it.</p>
+<p>Section 0 lists my review comments on those four commits: the line to comment on, the text, and the evidence. Sections 1 to 8 explain the code they refer to.</p>
 
 <nav>
+<a href="#comments">0. Where to comment what</a>
 <a href="#commits">1. Commits</a>
 <a href="#before-after">2. Who posts the puts</a>
 <a href="#round">3. One proxy round</a>
@@ -60,6 +71,79 @@ The middle commit in the diagram below, <span class="mono">472847a</span> (the f
 <a href="#code">8. Code map</a>
 </nav>
 
+<h2 id="comments">0. Where to comment what</h2>
+<p>Ten comments in review order. Each "Where" link opens the PR's Files changed tab at the line to comment on (GitHub may ask you to load a large file first).
+Paste the text as an inline comment there. The text carries no benchmark numbers, following the fork's convention. The badges <span class="lab blocking">C1</span> in the diagrams below point back here.</p>
+<div class="cmt" id="c1">
+<div class="chd"><span class="lab blocking">C1 &middot; blocking</span> <b>above 12 SMs the default context count runs the new combine on shared QPs</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR880">hybrid_combine_unordered.cuh L880</a> in Files changed, inline comment on <code>const auto rail_mode = mapped_mode == NCCL_GIN_RESOURCE_SHARING_CTA and comm::kNcclHasThreadPut</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L873-L883">code at the head</a></div>
+<div class="paste" id="p1">At the default 13 contexts, a call with more than 12 SMs shares the data QPs, so the proxy lane posts every put of the SM serially in GPU mode. In our runs at 28 SMs that combine is slower than main&#x27;s at 2 and 4 nodes, in both overlap modes, while the dispatch is unchanged. Megatron-LM creates its buffer without `num_allocated_qps`, so training at its SM count takes this path. Could the combine keep main&#x27;s per-channel posting when the SM does not own its QP, or could the default follow the SM count, so a caller who never sets `num_allocated_qps` does not get a slower combine than today?</div>
+<button class="cp" data-t="p1">Copy text</button>
+<div class="ev">Reproduced in our runs: 28 SMs at the default 13 contexts, 2 and 4 nodes, both overlap modes: combine slower than main, dispatch unchanged. Traced: the ownership condition in <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/comm.cuh#L147-L176">comm.cuh L147-L176</a>, 0 resolves to 13 in <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/backend/nccl.cu#L174-L194">nccl.cu L174-L194</a>, Megatron-LM builds its buffer without the argument in <a href="https://github.com/NVIDIA/Megatron-LM/blob/30b9ffe4391c57e8c7d9ec481f54497c1b14b372/megatron/core/transformer/moe/fused_a2a.py#L109-L116">fused_a2a.py L109-L116</a>.</div>
+</div>
+<div class="cmt" id="c2">
+<div class="chd"><span class="lab should-fix">C2 &middot; should fix</span> <b><code>num_sms + 1</code> contexts lower the channel count with overlap on</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-d9eb0a1f1dba749314c4b7b4aa458cd2c7ef3bf62fedcee1f34b67cdf4820ee7R287">elastic.py L287</a> in Files changed, inline comment on <code>clamped into [2, 41] with a warning; `num_sms + 1` gives every SM its own QP</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/buffers/elastic.py#L280-L293">code at the head</a></div>
+<div class="paste" id="p2">With `num_sms + 1` contexts the signals per context drop, so with overlap on at 28 SMs the kernels compile with 6 channels per SM instead of 7, and the dispatch gets slower than main. At 4 nodes and 28 SMs the combine with one QP per SM is also no faster than main in our runs. Could the docstring say what the recipe costs, and was it measured at more than 2 nodes?</div>
+<button class="cp" data-t="p2">Copy text</button>
+<div class="ev">Reproduced: 28 SMs with 29 contexts and overlap on: the kernels were built with 6 channels per SM (7 at 13 contexts), the dispatch is slower than main at 2 and 4 nodes, and the combine is at parity with main at 4 nodes. Traced: <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/gin_resource_alloc.cuh#L117-L140">compute_part_allocation</a>.</div>
+</div>
+<div class="cmt" id="c3">
+<div class="chd"><span class="lab should-fix">C3 &middot; should fix</span> <b>overlap off at 4 nodes and 6 SMs, the combine is slower than main</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR875">hybrid_combine_unordered.cuh L875</a> in Files changed, inline comment on <code>const auto [rail_qp, mapped_mode] =</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L873-L876">code at the head</a></div>
+<div class="paste" id="p3">At 4 nodes and 6 SMs with overlap off, the combine and the reduced combine are slower than main&#x27;s in our runs (with overlap on they are faster). At that shape each SM owns two data QPs and the proxy posts everything on the first one. Have you measured the 4- and 8-node shapes with overlap off, and would spreading the proxy&#x27;s puts over the SM&#x27;s QPs change it?</div>
+<button class="cp" data-t="p3">Copy text</button>
+<div class="ev">Reproduced: 4 nodes, 6 SMs, overlap off, 8192 tokens: combine and reduced combine slower than main. Faster than main with overlap on. Mechanism not established. Candidate, traced only: each SM owns 2 data QPs (<a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/qp_mapping.cuh#L62-L95">qp_mapping.cuh</a>) and the proxy posts on the first.</div>
+</div>
+<div class="cmt" id="c4">
+<div class="chd"><span class="lab should-fix">C4 &middot; should fix</span> <b>the batched round makes the overlap-on combine spill on SM90, <code>#pragma unroll 1</code> removes it</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR953">hybrid_combine_unordered.cuh L953</a> in Files changed, inline comment on <code>#pragma unroll  (above the pass-2 loop over forward warps)</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L946-L969">code at the head</a></div>
+<div class="paste" id="p4">On SM90 this loop makes the overlap-on combine spill: ptxas reports spill stores and loads in both the plain and the reduced combine that the parent proxy commit does not have, and most reloads sit in the unrolled pass 2. With `#pragma unroll 1` on this loop the 13-context instance compiles without spills. Could you take that change, or measure the SM90 combine with and without it?</div>
+<button class="cp" data-t="p4">Copy text</button>
+<div class="ev">Reproduced: the ptxas report of the kernels that ran (SM90, 12 SMs, 13 contexts, overlap on) shows spill stores and loads in the plain and the reduced combine that main does not have. A static compile with only this pragma changed to <code>#pragma unroll 1</code> has no spills. The runtime cost of the spill is not measured.</div>
+</div>
+<div class="cmt" id="c5">
+<div class="chd"><span class="lab question">C5 &middot; question</span> <b>the first round holds the first doorbell back</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR925">hybrid_combine_unordered.cuh L925</a> in Files changed, inline comment on <code>const bool drain_now = total_pending &gt; 0 and</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L923-L926">code at the head</a></div>
+<div class="paste" id="p5">The first round waits for one descriptor per forward warp, and early in the kernel the puts are slow because the scale-up warps still run, so the first doorbell rings much later than in the previous combine. Could the floor apply only after an SM&#x27;s first doorbell, so the first batch goes out at once and later rounds keep the batching?</div>
+<button class="cp" data-t="p5">Copy text</button>
+<div class="ev">Reproduced earlier with in-kernel traces on an earlier head whose round logic equals this one: the first doorbell rings later than in the previous combine. Not rerun on this head.</div>
+</div>
+<div class="cmt" id="c6">
+<div class="chd"><span class="lab nit">C6 &middot; nit</span> <b>the ring on a node change is not needed on EFA GDA</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR949">hybrid_combine_unordered.cuh L949</a> in Files changed, inline comment on <code>// destination. A deferred doorbell only covers one destination -- GDAKI gives each</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L946-L962">code at the head</a></div>
+<div class="paste" id="p6">On EFA GDA one SQ per context carries the puts to every node, so a deferred doorbell there also covers puts to other destinations. We removed the ring on a node change and the 4-node matrices still pass with no perf change at 6 SMs. If the rule is for DOCA GDAKI, could the comment say so (it now reads as if EFA needed it too)?</div>
+<button class="cp" data-t="p6">Copy text</button>
+<div class="ev">Traced: the NCCL 2.32.6 THREAD put writes every WQE into the context's one SQ and rings that SQ (<a href="https://github.com/NVIDIA/nccl/blob/ad2d192c1f279aefcaf340f67e07880b65a1116b/src/include/nccl_device/gin/efa_gda/gin_efa_gda.h#L162-L207">gin_efa_gda.h L162-L207</a>). Reproduced: a variant without the ring on a node change passes the 4-node matrices with no measurable perf change.</div>
+</div>
+<div class="cmt" id="c7">
+<div class="chd"><span class="lab should-fix">C7 &middot; should fix</span> <b>2,461 copied lines, and the previous kernels run a layout main never ran</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-2bc4844c255742bcfbeb784188bdc13702eed439bd9867094b941a994f8c5273R931">hybrid_combine_unordered_legacy.cuh L931</a> in Files changed, inline comment on <code>// Byte copy of the unordered combine kernel before the proxy warp took over ...</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered_legacy.cuh#L930-L935">code at the head</a></div>
+<div class="paste" id="p7">The three legacy headers are copies of main&#x27;s kernels, so every later fix to the unordered dispatch, epilogue or combine has to land twice, and one image only ever runs one generation. Also, the &quot;older NCCL runs exactly main&#x27;s kernels and layout&quot; holds only for the default: an explicit `num_allocated_qps` above 17 is no longer clamped to 17 for the previous kernels, so they run a layout main never ran. Could the previous generation keep main&#x27;s ceiling, and could the fallback be narrowed to the proxy&#x27;s posting loop instead of three full copies?</div>
+<button class="cp" data-t="p7">Copy text</button>
+<div class="ev">Traced: the three legacy files equal main's kernels apart from the trailing note, and <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/buffers/elastic.py#L364-L370">elastic.py L364-L370</a> clamps an explicit count to 41 for both generations. Reproduced: with 29 requested contexts the previous kernels ran 29 contexts and 6 channels per SM, where main clamps to 17 contexts and 7 channels.</div>
+</div>
+<div class="cmt" id="c8">
+<div class="chd"><span class="lab nit">C8 &middot; nit</span> <b>the batch size keys on the compute capability, and the header default differs from main&#x27;s</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-d0f74998a6275173a0733855b6f6da399fefe2989b36cee6414748514b245aeeR90">compiler.hpp L90</a> in Files changed, inline comment on <code>if (arch_major == 10 and arch_minor == 0)</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/jit/compiler.hpp#L84-L92">code at the head</a></div>
+<div class="paste" id="p8">The header default is 6 while main used 12 and the JIT passes 12 everywhere except compute capability 10.0, so an offline compile builds a different batch size than the runtime. Could the default be 12? And since the sweeps found the difference on one GPU, is the property behind it the per-put cost or the NIC bandwidth per GPU? Keying on that would keep the choice right on future parts.</div>
+<button class="cp" data-t="p8">Copy text</button>
+<div class="ev">Traced: main's combine fixes <code>kBatchSize = 12</code>, and the header default is 6 (<a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L22-L24">L22-L24</a>).</div>
+</div>
+<div class="cmt" id="c9">
+<div class="chd"><span class="lab nit">C9 &middot; nit</span> <b>the TMA handle rebuild is written twice</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42/files#diff-3fa0c91f4bae02511cacbaf5a61bc61b33a125e90736edacc94fb395debdea0aR471">hybrid_combine_unordered.cuh L471</a> in Files changed, inline comment on <code>// Rebuild this warp&#x27;s TMA buffer handle here instead of keeping the pre-split one live across</code> &middot; <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L471-L478">code at the head</a></div>
+<div class="paste" id="p9">The same handle rebuild and its comment appear in both data-warp branches. Could it be one small helper, so a later change to the TMA buffer layout cannot update only one of them?</div>
+<button class="cp" data-t="p9">Copy text</button>
+<div class="ev">Traced: identical to <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L212-L219">L212-L219</a>, comment included.</div>
+</div>
+<div class="cmt" id="c10">
+<div class="chd"><span class="lab PR-level">C10 &middot; PR level</span> <b>what we ran</b></div>
+<div class="where">Where: <a href="https://github.com/amazon-contributing/DeepEP/pull/42">Conversation tab</a>, a top-level comment</div>
+<div class="paste" id="p10">I ran the head on SM90 at 2 and 4 nodes: the test_ep matrix with checks in both overlap modes, the same with EP_DEBUG_CHECKS=all, masked 0.95 at 12 SMs (and at 6 SMs on 2 nodes), 28 SMs, 128 tokens, the proxy transport, the graph-replay and alternating-routing probes and the pressure test. All of them pass, and so do the 8-node matrices in both overlap modes and the previous kernels on NCCL 2.31.2 and 2.32.3 at 2 and 4 nodes. The perf findings are in comments 1 to 3. Still running: the same cells on SM100 and SM103, and the matrices with `--allow-multiple-reduction=0`. None of the runs above built that variant, so the `not kAllowMultipleReduction` branch of `count_forward_slots_per_dst` has not run yet. I will add the results here.</div>
+<button class="cp" data-t="p10">Copy text</button>
+<div class="ev">Traced: the PR changes no file under <code>tests/</code>. test_ep's <code>--allow-multiple-reduction</code> defaults to 1 (<a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/tests/elastic/test_ep.py#L603">test_ep.py L603</a>), and the JIT caches of the runs above hold only <code>kAllowMultipleReduction = true</code> combine instances, so the branch at <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L49-L66">L49-L66</a> never ran. Update the text when the remaining runs finish.</div>
+</div>
 <h2 id="commits">1. The five commits</h2>
 <figure>
 <svg viewBox="0 0 1080 190" role="img" aria-label="The five commits of PR 42 in order">
@@ -228,7 +312,7 @@ PR 42 changes how the proxy warp does that, and who waits for the incoming puts.
     <text x="934" y="208">and NCCL &#8805; 2.32.6</text>
     <text x="934" y="232">otherwise the</text>
     <text x="934" y="249">mapped mode</text>
-    <line x1="904" y1="192" x2="922" y2="192" stroke="#2f855a" stroke-width="3" marker-end="url(#a2)"/>
+    <line x1="904" y1="192" x2="922" y2="192" stroke="#2f855a" stroke-width="3" marker-end="url(#a2)"/><a href="#c1"><circle cx="1036" cy="114" r="10" fill="#c53030"/><text x="1036" y="118" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C1</text></a><a href="#c3"><circle cx="1060" cy="114" r="10" fill="#c05621"/><text x="1060" y="118" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C3</text></a><a href="#c5"><circle cx="890" cy="130" r="10" fill="#2b6cb0"/><text x="890" y="134" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C5</text></a><a href="#c4"><circle cx="890" cy="164" r="10" fill="#c05621"/><text x="890" y="168" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C4</text></a><a href="#c6"><circle cx="890" cy="194" r="10" fill="#718096"/><text x="890" y="198" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C6</text></a>
     <rect x="552" y="352" width="520" height="86" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
     <text x="564" y="376" font-weight="700" fill="#6b46c1">Who waits for the incoming puts</text>
     <text x="564" y="398">The proxy lane waits once, after its last round,</text>
@@ -263,7 +347,7 @@ The lane posts each descriptor one step late, so it knows the next descriptor's 
     <text x="452" y="124">post the previous descriptor,</text>
     <text x="452" y="142">ring if the next one changes node</text>
     <rect x="712" y="80" width="160" height="78" rx="8" fill="#fffaf0" stroke="#c05621"/>
-    <text x="724" y="104" font-weight="700">Last descriptor</text>
+    <text x="724" y="104" font-weight="700">Last descriptor</text><a href="#c5"><circle cx="414" cy="68" r="10" fill="#2b6cb0"/><text x="414" y="72" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C5</text></a><a href="#c4"><circle cx="652" cy="92" r="10" fill="#c05621"/><text x="652" y="96" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C4</text></a><a href="#c6"><circle cx="676" cy="92" r="10" fill="#718096"/><text x="676" y="96" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C6</text></a>
     <text x="724" y="124">post it and ring</text>
     <text x="724" y="142">(no un-rung WQE left)</text>
     <rect x="894" y="80" width="180" height="78" rx="8" fill="#faf5ff" stroke="#6b46c1"/>
@@ -372,8 +456,8 @@ The dispatch spreads its channels over all of the SM's QPs.</p>
 <table>
 <tr><th>contexts <i>n</i></th><th>signals per context</th><th>data QPs</th><th>6 SMs</th><th>12 SMs</th><th>28 SMs</th><th>40 SMs</th></tr>
 <tr><td>11 (main, previous kernels)</td><td class="n">21</td><td class="n">10</td><td class="own">own: 1 or 2 QPs per SM</td><td class="shared">shared</td><td class="shared">shared</td><td class="shared">shared</td></tr>
-<tr><td>13 (new default)</td><td class="n">17</td><td class="n">12</td><td class="own">own: 2 QPs per SM, the combine posts on 1</td><td class="own">own: 1 QP per SM</td><td class="shared">shared</td><td class="shared">shared</td></tr>
-<tr><td>29 (28 SMs + 1)</td><td class="n">6</td><td class="n">28</td><td class="own">own: 4 or 5 per SM</td><td class="own">own: 2 or 3 per SM</td><td class="own">own: 1 per SM</td><td class="shared">shared</td></tr>
+<tr><td>13 (new default)</td><td class="n">17</td><td class="n">12</td><td class="own">own: 2 QPs per SM, the combine posts on 1 <a href="#c3" class="lab should-fix" style="text-decoration:none">C3</a></td><td class="own">own: 1 QP per SM</td><td class="shared">shared <a href="#c1" class="lab blocking" style="text-decoration:none">C1</a></td><td class="shared">shared</td></tr>
+<tr><td>29 (28 SMs + 1) <a href="#c2" class="lab should-fix" style="text-decoration:none">C2</a></td><td class="n">6</td><td class="n">28</td><td class="own">own: 4 or 5 per SM</td><td class="own">own: 2 or 3 per SM</td><td class="own">own: 1 per SM</td><td class="shared">shared</td></tr>
 <tr><td>41 (ceiling)</td><td class="n">4</td><td class="n">40</td><td class="own">own: 6 or 7 per SM</td><td class="own">own: 3 or 4 per SM</td><td class="own">own: 1 or 2 per SM</td><td class="own">own: 1 per SM</td></tr>
 </table>
 <p class="small"><span class="key" style="background:#f0fff4"></span>the SM owns its QPs (THREAD on NCCL 2.32.6 and later)<span class="key" style="background:#fff5f5"></span>QPs shared by all SMs (GPU mode).
@@ -411,7 +495,7 @@ With 41 contexts a QP has 4 signals, so an SM that owns one QP keeps at most 4 c
     <text x="502" y="82">two-FIFO forward list, proxy rounds, one QP per SM in the combine</text>
     <text x="502" y="100" fill="#4a5568" font-size="12">kNcclHasThreadPut = true (JIT flag EP_NCCL_RUNTIME_VERSION)</text>
     <rect x="490" y="128" width="582" height="96" rx="8" fill="#f7fafc" stroke="#4a5568"/>
-    <text x="502" y="152" font-weight="700">Previous generation, default 11 contexts</text>
+    <text x="502" y="152" font-weight="700">Previous generation, default 11 contexts</text><a href="#c7"><circle cx="1056" cy="146" r="10" fill="#c05621"/><text x="1056" y="150" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">C7</text></a>
     <text x="502" y="174" class="m" font-size="12">*_legacy.cuh: copies of main's three kernels, only a trailing note differs</text>
     <text x="502" y="196">single forward list, main's proxy (per-arch), per-channel arrival waits</text>
     <text x="502" y="214" fill="#4a5568" font-size="12">an explicit num_allocated_qps above 17 is no longer clamped to 17 here</text>
@@ -458,21 +542,22 @@ The JIT cache keeps both generations apart because the header names differ.</fig
 <tr><td>Countdown, early send and the done flag</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L562-L578">L562-L578</a>, end of channel <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L788-L795">L788-L795</a></td></tr>
 <tr><td>Slot rule in the replay</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L663-L707">L663-L707</a> (one slot per valid entry), <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L582-L591">L582-L591</a> (multiple reduction)</td></tr>
 <tr><td>Expected arrivals per SM</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L807-L861">L807-L861</a></td></tr>
-<tr><td>Proxy handle: THREAD or the mapped mode</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L864-L883">L864-L883</a></td></tr>
-<tr><td>Proxy round: floor, pass 1, pass 2</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L885-L970">L885-L970</a></td></tr>
+<tr><td>Proxy handle: THREAD or the mapped mode <a href="#c1" class="lab blocking" style="text-decoration:none">C1</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L864-L883">L864-L883</a></td></tr>
+<tr><td>Proxy round: floor, pass 1, pass 2 <a href="#c4" class="lab should-fix" style="text-decoration:none">C4</a> <a href="#c5" class="lab question" style="text-decoration:none">C5</a> <a href="#c6" class="lab nit" style="text-decoration:none">C6</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L885-L970">L885-L970</a></td></tr>
 <tr><td>One arrival wait per SM</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L972-L990">L972-L990</a></td></tr>
-<tr><td>TMA buffer handle rebuilt inside each data-warp role</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L212-L219">L212-L219</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L471-L478">L471-L478</a></td></tr>
+<tr><td>TMA buffer handle rebuilt inside each data-warp role <a href="#c9" class="lab nit" style="text-decoration:none">C9</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L212-L219">L212-L219</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L471-L478">L471-L478</a></td></tr>
 <tr><td>Entry flush of all contexts (from main)</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/impls/hybrid_combine_unordered.cuh#L183-L189">L183-L189</a></td></tr>
 <tr><td>kNcclHasThreadPut</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/comm.cuh#L25-L35">comm.cuh L25-L35</a></td></tr>
 <tr><td>SM-to-QP mapping</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/qp_mapping.cuh#L62-L95">qp_mapping.cuh L62-L95</a></td></tr>
 <tr><td>Context constants, rail cap, signal check</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/gin_resource_alloc.cuh#L20-L75">gin_resource_alloc.cuh L20-L75</a></td></tr>
 <tr><td>Parts and channels per SM from the signals</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/include/deep_ep/common/gin_resource_alloc.cuh#L87-L140">gin_resource_alloc.cuh L87-L140</a></td></tr>
 <tr><td>Context count at buffer creation</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/backend/nccl.cu#L174-L207">nccl.cu L174-L207</a>, Python clamp <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/deep_ep/buffers/elastic.py#L364-L370">elastic.py L364-L370</a></td></tr>
-<tr><td>JIT flags: NCCL runtime version, batch size per arch</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/jit/compiler.hpp#L72-L92">compiler.hpp L72-L92</a></td></tr>
-<tr><td>Generation choice</td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/kernel_select.hpp#L63-L86">kernel_select.hpp L63-L86</a>, used in <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L107">dispatch.hpp L107</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L355">L355</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/combine.hpp#L80-L81">combine.hpp L80-L81</a></td></tr>
+<tr><td>JIT flags: NCCL runtime version, batch size per arch <a href="#c8" class="lab nit" style="text-decoration:none">C8</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/jit/compiler.hpp#L72-L92">compiler.hpp L72-L92</a></td></tr>
+<tr><td>Generation choice <a href="#c7" class="lab should-fix" style="text-decoration:none">C7</a></td><td><a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/kernel_select.hpp#L63-L86">kernel_select.hpp L63-L86</a>, used in <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L107">dispatch.hpp L107</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/dispatch.hpp#L355">L355</a>, <a href="https://github.com/amazon-contributing/DeepEP/blob/b9a76ff8f69f1e76599beb84fae2961924217590/csrc/kernels/elastic/combine.hpp#L80-L81">combine.hpp L80-L81</a></td></tr>
 <tr><td>NCCL 2.32.6 THREAD put (one poster per QP, no mixing without a flush)</td><td><a href="https://github.com/NVIDIA/nccl/blob/ad2d192c1f279aefcaf340f67e07880b65a1116b/src/include/nccl_device/gin/efa_gda/gin_efa_gda.h#L162-L207">gin_efa_gda.h L162-L207</a> at v2.32.6-1</td></tr>
 </table>
-<p class="small">Notes for reading the PR at <span class="mono">b9a76ff</span>. The page describes the code only. It does not judge it.</p>
+<p class="small">Notes for reading the PR at <span class="mono">b9a76ff</span>. Section 0 holds review comments that are not posted yet.</p>
+<script>document.querySelectorAll(".cp").forEach(b => b.addEventListener("click", () => { navigator.clipboard.writeText(document.getElementById(b.dataset.t).textContent); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy text", 1500); }));</script>
 </main>
 </body>
 </html>
